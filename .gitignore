@@ -1,0 +1,42 @@
+# 可执行文件
+*.exe
+*.out
+*.app
+
+# 编译生成的文件
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+
+# IDE 文件
+.vscode/
+.vs/
+*.vcxproj
+*.vcxproj.filters
+*.sln
+*.suo
+*.user
+
+# 临时文件
+*.tmp
+*.temp
+*~
+
+# 日志文件
+*.log
+
+# 调试文件
+*.pdb
+*.ilk
+
+# CMake 生成的文件
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# 其他
+.DS_Store
+Thumbs.db
