@@ -630,7 +630,7 @@ public:
  */
 template<typename T, typename... Args>
 constexpr bool check_no_throw() noexcept {
-    return is_nothrow_constructible<T, Args...>::value;
+    return std::is_nothrow_constructible<T, Args...>::value;
 }
 
 /**
@@ -650,8 +650,8 @@ constexpr bool check_basic_guarantee() noexcept {
  */
 template<typename T>
 constexpr bool check_strong_guarantee() noexcept {
-    return is_nothrow_copy_constructible<T>::value && 
-           is_nothrow_copy_assignable<T>::value;
+    return std::is_nothrow_copy_constructible<T>::value && 
+           std::is_nothrow_copy_assignable<T>::value;
 }
 
 /**

@@ -52,7 +52,7 @@ public:
 
     // 获取指针
     T* get() const noexcept { return ptr_; }
-    T* release() noexcept {
+    T* release() noexcept {  //返回的对象的原始指针，智能指针不再管理这个对象，智能指针变为空
         T* old = ptr_;
         ptr_ = nullptr;
         return old;
