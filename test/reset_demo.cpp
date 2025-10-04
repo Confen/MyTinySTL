@@ -1,7 +1,7 @@
 #include <iostream>
 #include <memory>
 #include "../memory.h"
-
+#include <windows.h> 
 using namespace mystl;
 
 // 测试类，用于观察构造和析构
@@ -158,6 +158,8 @@ void test_reset_with_different_types() {
 }
 
 int main() {
+    SetConsoleOutputCP(65001);
+    SetConsoleCP(65001);
     std::cout << "MyTinySTL unique_ptr::reset 方法测试" << std::endl;
     std::cout << "=====================================" << std::endl;
     

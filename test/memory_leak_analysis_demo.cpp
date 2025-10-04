@@ -1,11 +1,12 @@
+#define MYTINYSTL_DEBUG
+
 #include <iostream>
 #include <vector>
 #include <string>
 #include <chrono>
 #include <stdexcept>
+#include <windows.h>
 #include "../memory.h"
-
-#define MYTINYSTL_DEBUG
 
 using namespace mystl;
 
@@ -319,6 +320,9 @@ void demonstrate_best_practices() {
 // ============================================================================
 
 int main() {
+    SetConsoleOutputCP(65001);
+    SetConsoleCP(65001);
+    
     std::cout << "MyTinySTL 内存泄露检测原理与测试方法详解" << std::endl;
     std::cout << "===========================================" << std::endl;
     

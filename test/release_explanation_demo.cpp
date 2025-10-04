@@ -1,6 +1,6 @@
 #include <iostream>
 #include "../memory.h"
-
+#include <windows.h> 
 using namespace mystl;
 
 class TestClass {
@@ -24,7 +24,7 @@ void test_release_without_delete() {
         std::cout << "智能指针管理的对象值: " << ptr->value << std::endl;
         
         // release() 释放所有权，但不删除对象
-        TestClass* raw_ptr = ptr.release();
+        TestClass* raw_ptr = ptr.release();  
         std::cout << "release() 后智能指针是否为空: " << (ptr ? "否" : "是") << std::endl;
         std::cout << "raw_ptr 指向的对象值: " << raw_ptr->value << std::endl;
         
@@ -129,6 +129,8 @@ void test_common_release_use_cases() {
 }
 
 int main() {
+    SetConsoleOutputCP(65001);
+    SetConsoleCP(65001);
     std::cout << "MyTinySTL release() 方法详解" << std::endl;
     std::cout << "============================" << std::endl;
     
@@ -147,4 +149,9 @@ int main() {
     
     return 0;
 }
+
+
+
+
+
 
