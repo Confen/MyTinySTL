@@ -45,7 +45,7 @@ void test_release_with_delete() {
         std::cout << "智能指针管理的对象值: " << ptr->value << std::endl;
         
         // release() 释放所有权
-        TestClass* raw_ptr = ptr.release();
+        TestClass* raw_ptr = ptr.release(); //raw_ptr为原始指针，智能指针不再管理这个对象，智能指针变为空
         std::cout << "release() 后智能指针是否为空: " << (ptr ? "否" : "是") << std::endl;
         std::cout << "raw_ptr 指向的对象值: " << raw_ptr->value << std::endl;
         
@@ -149,6 +149,10 @@ int main() {
     
     return 0;
 }
+
+
+
+
 
 
 

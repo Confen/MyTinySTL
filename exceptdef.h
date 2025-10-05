@@ -9,6 +9,7 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
 
 namespace mystl {
 
@@ -126,6 +127,26 @@ struct mystl_is_nothrow_destructible {
     } while(0)
 
 /**
+ * @brief 改进的基本异常保证断言宏（需要对象参数）
+ * @param expr 要检查的表达式
+ * @param obj 要检查的对象
+ */
+#define MYSTL_BASIC_GUARANTEE_ASSERT_WITH_OBJ(expr, obj) \
+    do { \
+        bool was_valid_before = (obj).is_valid(); \
+        try { \
+            expr; \
+        } catch (...) { \
+            /* 基本异常保证：检查对象是否仍处于有效状态 */ \
+            if (!(obj).is_valid()) { \
+                std::cout << "❌ 基本异常保证失败：对象处于无效状态" << std::endl; \
+            } else { \
+                std::cout << "✅ 基本异常保证成功：对象仍处于有效状态" << std::endl; \
+            } \
+        } \
+    } while(0)
+
+/**
  * @brief 强异常保证断言宏
  * @param expr 要检查的表达式
  */
@@ -138,6 +159,26 @@ struct mystl_is_nothrow_destructible {
         } \
     } while(0)
 
+/**
+ * @brief 改进的强异常保证断言宏（需要对象参数）
+ * @param expr 要检查的表达式
+ * @param obj 要检查的对象
+ */
+#define MYSTL_STRONG_GUARANTEE_ASSERT_WITH_OBJ(expr, obj) \
+    do { \
+        auto state_before = (obj).get_state(); \
+        try { \
+            expr; \
+        } catch (...) { \
+            /* 强异常保证：检查对象状态是否完全不变 */ \
+            auto state_after = (obj).get_state(); \
+            if (state_before != state_after) { \
+                std::cout << "❌ 强异常保证失败：对象状态发生了变化" << std::endl; \
+            } else { \
+                std::cout << "✅ 强异常保证成功：对象状态完全不变" << std::endl; \
+            } \
+        } \
+    } while(0)
 // ============================================================================
 // 自定义异常类
 // ============================================================================
