@@ -2,6 +2,8 @@
 #define MYTINYSTL_VECTOR_H
 
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <initializer_list>
 #include <stdexcept>
 #include <algorithm>
@@ -68,8 +70,8 @@ public:
     explicit vector(size_type n) : begin_(nullptr), end_(nullptr), cap_(nullptr) {
         if (n > 0) {
             begin_ = allocator_.allocate(n);
-            end_ = cap_ = begin_ + n;
-            mystl::uninitialized_default_construct(begin_, end_);
+            end_ = mystl::uninitialized_fill_n(begin_, n, T{});
+            cap_ = begin_ + n;
         }
     }
 
@@ -82,8 +84,8 @@ public:
     vector(size_type n, const value_type& value) : begin_(nullptr), end_(nullptr), cap_(nullptr) {
         if (n > 0) {
             begin_ = allocator_.allocate(n);
-            end_ = cap_ = begin_ + n;
-            mystl::uninitialized_fill(begin_, end_, value);
+            end_ = mystl::uninitialized_fill_n(begin_, n, value);
+            cap_ = begin_ + n;
         }
     }
 
@@ -252,6 +254,14 @@ private:
     }
 
 public:
+/**
+ * @brief 拷贝赋值操作符
+ * @param other 要拷贝的vector
+ * @return 当前vector的引用
+ * 
+ * 异常安全保证：强异常保证
+ * 如果赋值失败，当前vector状态不变
+ */
     vector& operator=(const vector&other)
     {
         if(this != &other)
@@ -263,16 +273,201 @@ public:
                 //销毁当前元素
                 mystl::destroy(begin_,end_);
                 //拷贝新元素
-                mystl::uninitialized_copy(other.begin,other.end,begin_);
+                mystl::uninitialized_copy(other.begin_,other.end_,begin_);
                 end_= begin_ + other.size(); 
             }  else {
                 //如果容量不足，需要扩容
-                vector temp(other);
-                swap(temp);
+                vector temp(other); //创建临时对象，强异常保证
+                mystl::swap(*this, temp);
             }
         }
         return *this;
     }
+
+    /**
+ * @brief 移动赋值操作符
+ * @param other 要移动的vector
+ * @return 当前vector的引用
+ * 
+ * 异常安全保证：无异常保证（noexcept）
+ * 移动操作不会失败
+ */
+    vector& operator=(vector&&other) noexcept {
+        if(this != &other) {
+            //销毁当前元素
+            mystl::destroy(begin_,end_);
+            allocator_.deallocate(begin_,cap_ - begin_);
+
+            //移动other到当前对象
+            begin_ = other.begin_;
+            end_ = other.end_;
+            cap_ = other.cap_;
+
+            //将other置空
+            other.begin_ = other.end_ = other.cap_ = nullptr;
+        }
+        return *this;
+    }
+/**
+ * @brief 初始化列表赋值操作符
+ * @param ilist 初始化列表
+ * @return 当前vector的引用
+ */
+    vector& operator=(std::initializer_list<value_type> ilist) {
+        assign(ilist.begin(),ilist.end());
+        return *this;
+    }
+
+    /**
+ * @brief 下标访问操作符（非const版本）
+ * @param pos 位置索引
+ * @return 元素的引用
+ * 
+ * 注意：不进行边界检查，访问越界行为未定义
+ */
+    reference operator[](size_type pos) {
+        return begin_[pos];
+    }
+
+/**
+ * @brief 下标访问操作符（const版本）
+ * @param pos 位置索引
+ * @return 元素的const引用
+ */
+    const_reference operator[](size_type pos) const {
+        return begin_[pos];
+    }
+
+   /**
+ * @brief 边界检查访问方法（非const版本）
+ * @param pos 位置索引
+ * @return 元素的引用
+ * @throws std::out_of_range 如果pos超出范围
+ */
+ reference at(size_type pos) {
+    if(pos >= size()) {
+        throw std::out_of_range("vector::at: pos out of range");
+    }
+    return begin_[pos];
+ }
+
+ /**
+ * @brief 边界检查访问方法（const版本）
+ * @param pos 位置索引
+ * @return 元素的const引用
+ * @throws std::out_of_range 如果pos超出范围
+ */
+const_reference at(size_type pos) const {
+    if (pos >= size()) {
+        throw std::out_of_range("vector::at : out of range");
+    }
+    return begin_[pos];
+}
+
+reference front() {
+    return *begin_;
+};
+
+const_reference front() const{
+    return *begin_;
+}
+
+reference back() {
+    return *(end_ - 1);  //end_指向最后一个元素的下一个位置
+}
+
+const_reference back() const{
+    return *(end_ - 1);
+}
+
+pointer data() noexcept {
+    return begin_;
+}
+
+const_pointer data() const noexcept {
+    return begin_;
+}
+
+void reserve(size_type new_cap) {
+    if(new_cap > capacity()) {
+        reallocate(new_cap);
+    }
+}
+
+void resize(size_type count) {
+    resize(count,value_type{});
+}
+
+/**
+ * @brief 调整vector大小（带默认值）
+ * @param count 新的元素数量
+ * @param value 新元素的默认值
+ */
+void resize(size_type count, const value_type& value){
+    if(count < size()) {
+        mystl::destroy(begin_ + count , end_);
+        end_ = begin_ + count;
+    }else if (count > size()) {
+        if(count > capacity()) {
+            reallocate(count);
+        }
+        mystl::uninitialized_fill_n(end_, count - size(), value);
+        end_ = begin_ + count;
+    }
+}
+
+/**
+ * @brief 清空vector
+ * 销毁所有元素，但保留容量
+ */
+void clear() noexcept {
+    mystl::destroy(begin_, end_);
+    end_ = begin_;
+}
+
+void shrink_to_fit() {
+    if(size() < capacity()) {
+        reallocate(size());
+    }
+}
+
+size_type max_size() const noexcept{
+    return std::numeric_limits<size_type>::max() / sizeof(value_type);
+}
+/**
+ * @brief 重新分配内存到指定容量
+ * @param new_capacity 新的容量
+ */
+
+void reallocate(size_type new_capacity) {
+    if(new_capacity == 0)
+    {
+        if(begin_){
+        mystl::destroy(begin_,end_);
+        allocator_.deallocate(begin_,cap_ - begin_);
+        begin_ = end_ = cap_ = nullptr;
+        }
+        return ;
+    }
+     pointer new_begin = allocator_.allocate(new_capacity);
+     pointer new_end = new_begin;
+
+     try {
+        new_end = mystl::uninitialized_move(begin_,end_,new_begin);
+     }
+     catch(...) {
+        mystl::destroy(new_begin,new_end);
+        allocator_.deallocate(new_begin,new_capacity);
+        throw;
+     }
+//如果try抛出异常，以下代码不会执行
+     mystl::destroy(begin_,end_);
+     allocator_.deallocate(begin_,cap_ - begin_);
+
+     begin_ = new_begin;
+     end_ = new_end;
+     cap_ = new_begin + new_capacity;
+}
 };
 
 } // namespace mystl
