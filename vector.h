@@ -432,7 +432,7 @@ void shrink_to_fit() {
 }
 
 size_type max_size() const noexcept{
-    return std::numeric_limits<size_type>::max() / sizeof(value_type);
+    return mystl::numeric_limits<size_type>::max() / sizeof(value_type);
 }
 /**
  * @brief 重新分配内存到指定容量

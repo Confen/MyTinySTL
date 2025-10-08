@@ -5,6 +5,10 @@
 #include <utility>
 #include <memory>
 #include <iterator>
+#include <cstddef>
+#include <cstdint>
+#include <climits>
+#include <cfloat>
 
 namespace mystl {
 
@@ -127,16 +131,141 @@ using std::remove_const;
 using std::remove_volatile;
 using std::remove_cv;
 using std::add_const;
+// 移除引用修饰符
+template<typename T>
+struct remove_reference {
+    typedef T type;
+};
+
+template<typename T>
+struct remove_reference<T&> {
+    typedef T type;
+};
+
+template<typename T>
+struct remove_reference<T&&> {
+    typedef T type;
+};
+
+// 添加左值引用
+template<typename T>
+struct add_lvalue_reference {
+    typedef T& type;
+};
+
+template<typename T>
+struct add_lvalue_reference<T&> {
+    typedef T& type;
+};
+
+template<typename T>
+struct add_lvalue_reference<T&&> {
+    typedef T& type;
+};
+
+// 添加右值引用
+template<typename T>
+struct add_rvalue_reference {
+    typedef T&& type;
+};
+
+template<typename T>
+struct add_rvalue_reference<T&> {
+    typedef T&& type;
+};
+
+template<typename T>
+struct add_rvalue_reference<T&&> {
+    typedef T&& type;
+};
+
+// 检查是否为左值引用
+template<typename T>
+struct is_lvalue_reference_mystl : m_false_type {};
+
+template<typename T>
+struct is_lvalue_reference_mystl<T&> : m_true_type {};
+
+// 检查是否为右值引用
+template<typename T>
+struct is_rvalue_reference_mystl : m_false_type {};
+
+template<typename T>
+struct is_rvalue_reference_mystl<T&&> : m_true_type {};
+
+// 数值限制
+template<typename T>
+struct numeric_limits {
+    static constexpr bool is_specialized = false;
+    static constexpr T min() noexcept { return T(); }
+    static constexpr T max() noexcept { return T(); }
+};
+
+// 特化版本
+template<>
+struct numeric_limits<int> {
+    static constexpr bool is_specialized = true;
+    static constexpr int min() noexcept { return -2147483648; }
+    static constexpr int max() noexcept { return 2147483647; }
+};
+
+template<>
+struct numeric_limits<unsigned int> {
+    static constexpr bool is_specialized = true;
+    static constexpr unsigned int min() noexcept { return 0; }
+    static constexpr unsigned int max() noexcept { return 4294967295U; }
+};
+
+template<>
+struct numeric_limits<long> {
+    static constexpr bool is_specialized = true;
+    static constexpr long min() noexcept { return LONG_MIN; }
+    static constexpr long max() noexcept { return LONG_MAX; }
+};
+
+template<>
+struct numeric_limits<unsigned long> {
+    static constexpr bool is_specialized = true;
+    static constexpr unsigned long min() noexcept { return 0; }
+    static constexpr unsigned long max() noexcept { return ULONG_MAX; }
+};
+
+template<>
+struct numeric_limits<long long> {
+    static constexpr bool is_specialized = true;
+    static constexpr long long min() noexcept { return LLONG_MIN; }
+    static constexpr long long max() noexcept { return LLONG_MAX; }
+};
+
+template<>
+struct numeric_limits<unsigned long long> {
+    static constexpr bool is_specialized = true;
+    static constexpr unsigned long long min() noexcept { return 0; }
+    static constexpr unsigned long long max() noexcept { return ULLONG_MAX; }
+};
+
+template<>
+struct numeric_limits<float> {
+    static constexpr bool is_specialized = true;
+    static constexpr float min() noexcept { return 1.175494e-38f; }
+    static constexpr float max() noexcept { return 3.402823e+38f; }
+};
+
+template<>
+struct numeric_limits<double> {
+    static constexpr bool is_specialized = true;
+    static constexpr double min() noexcept { return 2.225074e-308; }
+    static constexpr double max() noexcept { return 1.797693e+308; }
+};
+
+template<>
+struct numeric_limits<long double> {
+    static constexpr bool is_specialized = true;
+    static constexpr long double min() noexcept { return 3.362103e-4932L; }
+    static constexpr long double max() noexcept { return 1.189731e+4932L; }
+};
+
 using std::add_volatile;
-using std::add_cv;
-using std::remove_reference;
-using std::add_lvalue_reference;
-using std::add_rvalue_reference;
-using std::remove_pointer;
-using std::add_pointer;
-using std::make_signed;
-using std::make_unsigned;
-using std::remove_extent;
 using std::remove_all_extents;
 using std::aligned_storage;
 using std::aligned_union;

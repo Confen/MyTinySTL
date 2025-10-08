@@ -45,13 +45,10 @@ public:
     // 安全的析构函数
     ~SafeBadExample() {
         if (is_valid && data != nullptr) {
-            try {
                 delete[] data;
                 std::cout << "析构 SafeBadExample" << std::endl;
-            } catch (...) {
-                std::cout << "析构时发生异常，但已安全处理" << std::endl;
-            }
-        } else {
+            } 
+     else {
             std::cout << "跳过析构（无效状态）" << std::endl;
         }
         data = nullptr;  // 防止重复释放

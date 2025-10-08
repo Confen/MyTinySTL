@@ -168,7 +168,7 @@ void test_branch_prediction_impact() {
     
     int sum = 0;
     for (size_t i = 0; i < test_size; ++i) {
-        if (i % 2 == 0) {
+        if (i % 2 == 0) {  //编译器优化导致分支预测失败
             sum += i;
         } else {
             sum -= i;

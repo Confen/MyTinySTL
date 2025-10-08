@@ -148,8 +148,8 @@ make_pair(T1&& t1, T2&& t2) {
  * @return T&& 右值引用
  */
 template<typename T>
-typename std::remove_reference<T>::type&& move(T&& t) noexcept {
-    return static_cast<typename std::remove_reference<T>::type&&>(t);
+typename mystl::remove_reference<T>::type&& move(T&& t) noexcept {
+    return static_cast<typename mystl::remove_reference<T>::type&&>(t);
 }
 
 /**
@@ -159,13 +159,13 @@ typename std::remove_reference<T>::type&& move(T&& t) noexcept {
  * @return T&& 转发引用
  */
 template<typename T>
-T&& forward(typename std::remove_reference<T>::type& t) noexcept {
+T&& forward(typename mystl::remove_reference<T>::type& t) noexcept {
     return static_cast<T&&>(t);
 }
 
 template<typename T>
-T&& forward(typename std::remove_reference<T>::type&& t) noexcept {
-    static_assert(!std::is_lvalue_reference<T>::value, 
+T&& forward(typename mystl::remove_reference<T>::type&& t) noexcept {
+    static_assert(!mystl::is_lvalue_reference_mystl<T>::value, 
                   "template argument substituting T is an lvalue reference type");
     return static_cast<T&&>(t);
 }

@@ -112,7 +112,7 @@ void test_compiler_optimization_levels() {
     
     int sum = 0;
     for (size_t i = 0; i < test_size; ++i) {
-        if (data[i] == 0) {
+        if (data[i] == 0) { //编译器对规律性分支进行了优化
             sum += i;
         } else {
             sum -= i;
@@ -245,3 +245,7 @@ int main() {
     
     return 0;
 }
+
+
+
+
