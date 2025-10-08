@@ -645,6 +645,99 @@ void random_shuffle(RandomIter first, RandomIter last, RandomNumberGenerator& rn
 // 等函数已在 algobase.h 中定义，这里不再重复定义
 
 // ============================================================================
+// 排序算法
+// ============================================================================
+
+/**
+ * @brief 对[first, last)区间内的元素进行排序
+ * @param first 起始迭代器
+ * @param last 结束迭代器
+ */
+template <class RandomIter>
+void sort(RandomIter first, RandomIter last) {
+    sort(first, last, less<typename iterator_traits<RandomIter>::value_type>());
+}
+
+/**
+ * @brief 对[first, last)区间内的元素进行排序，使用给定的比较函数
+ * @param first 起始迭代器
+ * @param last 结束迭代器
+ * @param comp 比较函数
+ */
+template <class RandomIter, class Compared>
+void sort(RandomIter first, RandomIter last, Compared comp) {
+    if (first == last) {
+        return;
+    }
+    
+    // 简单的快速排序实现
+    auto pivot = partition(first, last, comp);
+    sort(first, pivot, comp);
+    sort(pivot + 1, last, comp);
+}
+
+/**
+ * @brief 对[first, last)区间内的元素进行稳定排序
+ * @param first 起始迭代器
+ * @param last 结束迭代器
+ */
+template <class RandomIter>
+void stable_sort(RandomIter first, RandomIter last) {
+    stable_sort(first, last, less<typename iterator_traits<RandomIter>::value_type>());
+}
+
+/**
+ * @brief 对[first, last)区间内的元素进行稳定排序，使用给定的比较函数
+ * @param first 起始迭代器
+ * @param last 结束迭代器
+ * @param comp 比较函数
+ */
+template <class RandomIter, class Compared>
+void stable_sort(RandomIter first, RandomIter last, Compared comp) {
+    if (first == last) {
+        return;
+    }
+    
+    // 简单的归并排序实现
+    auto mid = first + (last - first) / 2;
+    stable_sort(first, mid, comp);
+    stable_sort(mid, last, comp);
+    inplace_merge(first, mid, last, comp);
+}
+
+/**
+ * @brief 对[first, last)区间内的元素进行部分排序
+ * @param first 起始迭代器
+ * @param middle 部分排序的结束位置
+ * @param last 结束迭代器
+ */
+template <class RandomIter>
+void partial_sort(RandomIter first, RandomIter middle, RandomIter last) {
+    partial_sort(first, middle, last, less<typename iterator_traits<RandomIter>::value_type>());
+}
+
+/**
+ * @brief 对[first, last)区间内的元素进行部分排序，使用给定的比较函数
+ * @param first 起始迭代器
+ * @param middle 部分排序的结束位置
+ * @param last 结束迭代器
+ * @param comp 比较函数
+ */
+template <class RandomIter, class Compared>
+void partial_sort(RandomIter first, RandomIter middle, RandomIter last, Compared comp) {
+    if (first == middle || middle == last) {
+        return;
+    }
+    
+    // 简单的堆排序实现
+    make_heap(first, last, comp);
+    for (auto i = last; i != middle; --i) {
+        mystl::iter_swap(first, i - 1);
+        adjust_heap(first, middle - first, 0, comp);
+    }
+}
+
+// ============================================================================
 // 分区算法
 // ============================================================================
 
@@ -699,164 +792,198 @@ bool is_partitioned(ForwardIter first, ForwardIter last, UnaryPredicate pred) {
     return true;
 }
 
-// ============================================================================
-// 排序算法
-// ============================================================================
+// 堆算法已移至 heap_algo.h
 
 /**
- * @brief 对[first, last)区间内的元素进行排序，使用给定的比较函数
+ * @brief 将[first, last)区间内的元素构建成堆
+ * @param first 起始迭代器
+ * @param last 结束迭代器
+ */
+template <class RandomIter>
+void make_heap(RandomIter first, RandomIter last) {
+    make_heap(first, last, less<typename iterator_traits<RandomIter>::value_type>());
+}
+
+/**
+ * @brief 将[first, last)区间内的元素构建成堆，使用给定的比较函数
  * @param first 起始迭代器
  * @param last 结束迭代器
  * @param comp 比较函数
  */
 template <class RandomIter, class Compared>
-void sort(RandomIter first, RandomIter last, Compared comp) {
-    if (first == last) {
+void make_heap(RandomIter first, RandomIter last, Compared comp) {
+    if (first == last || first + 1 == last) {
         return;
     }
     
-    // 简单的快速排序实现
-    auto pivot = first;
-    auto i = first + 1;
-    auto j = last - 1;
-    
-    while (i <= j) {
-        while (i <= j && comp(*i, *pivot)) {
-            ++i;
-        }
-        while (i <= j && comp(*pivot, *j)) {
-            --j;
-        }
-        if (i <= j) {
-            mystl::iter_swap(i, j);
-            ++i;
-            --j;
-        }
+    auto len = last - first;
+    for (auto i = len / 2 - 1; i >= 0; --i) {
+        adjust_heap(first, len, i, comp);
     }
-    
-    mystl::iter_swap(pivot, j);
-    mystl::sort(first, j, comp);
-    mystl::sort(j + 1, last, comp);
 }
 
 /**
- * @brief 对[first, last)区间内的元素进行排序
+ * @brief 调整堆
+ * @param first 起始迭代器
+ * @param len 堆的长度
+ * @param hole 需要调整的位置
+ * @param comp 比较函数
+ */
+template <class RandomIter, class Compared>
+void adjust_heap(RandomIter first, typename iterator_traits<RandomIter>::difference_type len,
+                 typename iterator_traits<RandomIter>::difference_type hole, Compared comp) {
+    auto value = *(first + hole);
+    auto child = hole * 2 + 1;
+    
+    while (child < len) {
+        if (child + 1 < len && comp(*(first + child), *(first + child + 1))) {
+            ++child;
+        }
+        
+        if (comp(value, *(first + child))) {
+            *(first + hole) = *(first + child);
+            hole = child;
+            child = hole * 2 + 1;
+        } else {
+            break;
+        }
+    }
+    
+    *(first + hole) = value;
+}
+
+/**
+ * @brief 向堆中插入元素
  * @param first 起始迭代器
  * @param last 结束迭代器
  */
 template <class RandomIter>
-void sort(RandomIter first, RandomIter last) {
-    mystl::sort(first, last, less<typename iterator_traits<RandomIter>::value_type>());
+void push_heap(RandomIter first, RandomIter last) {
+    push_heap(first, last, less<typename iterator_traits<RandomIter>::value_type>());
 }
 
 /**
- * @brief 对[first, last)区间内的元素进行稳定排序，使用给定的比较函数
+ * @brief 向堆中插入元素，使用给定的比较函数
  * @param first 起始迭代器
  * @param last 结束迭代器
  * @param comp 比较函数
  */
 template <class RandomIter, class Compared>
-void stable_sort(RandomIter first, RandomIter last, Compared comp) {
-    if (first == last) {
+void push_heap(RandomIter first, RandomIter last, Compared comp) {
+    if (first == last || first + 1 == last) {
         return;
     }
     
-    // 简单的归并排序实现
-    auto mid = first + (last - first) / 2;
-    mystl::stable_sort(first, mid, comp);
-    mystl::stable_sort(mid, last, comp);
-    inplace_merge(first, mid, last, comp);
+    auto len = last - first;
+    auto hole = len - 1;
+    auto value = *(first + hole);
+    
+    while (hole > 0) {
+        auto parent = (hole - 1) / 2;
+        if (comp(*(first + parent), value)) {
+            *(first + hole) = *(first + parent);
+            hole = parent;
+        } else {
+            break;
+        }
+    }
+    
+    *(first + hole) = value;
 }
 
 /**
- * @brief 对[first, last)区间内的元素进行稳定排序
+ * @brief 从堆中移除最大元素
  * @param first 起始迭代器
  * @param last 结束迭代器
  */
 template <class RandomIter>
-void stable_sort(RandomIter first, RandomIter last) {
-    mystl::stable_sort(first, last, less<typename iterator_traits<RandomIter>::value_type>());
+void pop_heap(RandomIter first, RandomIter last) {
+    pop_heap(first, last, less<typename iterator_traits<RandomIter>::value_type>());
 }
 
 /**
- * @brief 对[first, last)区间内的元素进行部分排序，使用给定的比较函数
+ * @brief 从堆中移除最大元素，使用给定的比较函数
  * @param first 起始迭代器
- * @param middle 部分排序的结束位置
  * @param last 结束迭代器
  * @param comp 比较函数
  */
 template <class RandomIter, class Compared>
-void partial_sort(RandomIter first, RandomIter middle, RandomIter last, Compared comp) {
-    if (first == middle || middle == last) {
+void pop_heap(RandomIter first, RandomIter last, Compared comp) {
+    if (first == last || first + 1 == last) {
         return;
     }
     
-    // 简单的堆排序实现 - 注意：这里调用的是 heap_algo.h 中的 make_heap
-    make_heap(first, last, comp);
-    for (auto i = last; i != middle; --i) {
-        mystl::iter_swap(first, i - 1);
-        pop_heap(first, i - 1, comp);
-    }
+    mystl::iter_swap(first, last - 1);
+    adjust_heap(first, last - first - 1, 0, comp);
 }
 
 /**
- * @brief 对[first, last)区间内的元素进行部分排序
+ * @brief 对堆进行排序
  * @param first 起始迭代器
- * @param middle 部分排序的结束位置
  * @param last 结束迭代器
  */
 template <class RandomIter>
-void partial_sort(RandomIter first, RandomIter middle, RandomIter last) {
-    mystl::partial_sort(first, middle, last, less<typename iterator_traits<RandomIter>::value_type>());
+void sort_heap(RandomIter first, RandomIter last) {
+    sort_heap(first, last, less<typename iterator_traits<RandomIter>::value_type>());
 }
 
-// ============================================================================
-// 旋转算法
-// ============================================================================
-
 /**
- * @brief 将[first, middle)和[middle, last)两个区间交换位置
+ * @brief 对堆进行排序，使用给定的比较函数
  * @param first 起始迭代器
- * @param middle 中间迭代器
  * @param last 结束迭代器
- * @return 指向原来第一个元素的新位置的迭代器
+ * @param comp 比较函数
  */
-template <class ForwardIter>
-ForwardIter rotate(ForwardIter first, ForwardIter middle, ForwardIter last) {
-    if (first == middle) {
-        return last;
+template <class RandomIter, class Compared>
+void sort_heap(RandomIter first, RandomIter last, Compared comp) {
+    while (first != last) {
+        pop_heap(first, last, comp);
+        --last;
     }
-    if (middle == last) {
-        return first;
-    }
-    
-    ForwardIter next = middle;
-    do {
-        mystl::iter_swap(first++, next++);
-        if (first == middle) {
-            middle = next;
-        }
-    } while (next != last);
-    
-    ForwardIter result = first;
-    next = middle;
-    while (next != last) {
-        mystl::iter_swap(first++, next++);
-        if (first == middle) {
-            middle = next;
-        } else if (next == last) {
-            next = middle;
-        }
-    }
-    
-    return result;
 }
 
 // ============================================================================
 // 合并算法
 // ============================================================================
 
-// merge 函数已移至 set_algo.h
+/**
+ * @brief 合并两个已排序的序列
+ * @param first1 第一个序列的起始迭代器
+ * @param last1 第一个序列的结束迭代器
+ * @param first2 第二个序列的起始迭代器
+ * @param last2 第二个序列的结束迭代器
+ * @param result 输出序列的起始迭代器
+ * @return 指向输出序列最后一个元素的下一个位置的迭代器
+ */
+template <class InputIter1, class InputIter2, class OutputIter>
+OutputIter merge(InputIter1 first1, InputIter1 last1, InputIter2 first2, InputIter2 last2, OutputIter result) {
+    return merge(first1, last1, first2, last2, result, less<typename iterator_traits<InputIter1>::value_type>());
+}
+
+/**
+ * @brief 合并两个已排序的序列，使用给定的比较函数
+ * @param first1 第一个序列的起始迭代器
+ * @param last1 第一个序列的结束迭代器
+ * @param first2 第二个序列的起始迭代器
+ * @param last2 第二个序列的结束迭代器
+ * @param result 输出序列的起始迭代器
+ * @param comp 比较函数
+ * @return 指向输出序列最后一个元素的下一个位置的迭代器
+ */
+template <class InputIter1, class InputIter2, class OutputIter, class Compared>
+OutputIter merge(InputIter1 first1, InputIter1 last1, InputIter2 first2, InputIter2 last2, OutputIter result, Compared comp) {
+    while (first1 != last1 && first2 != last2) {
+        if (comp(*first2, *first1)) {
+            *result = *first2;
+            ++first2;
+        } else {
+            *result = *first1;
+            ++first1;
+        }
+        ++result;
+    }
+    
+    return mystl::copy(first2, last2, mystl::copy(first1, last1, result));
+}
 
 /**
  * @brief 原地合并两个已排序的序列
@@ -883,8 +1010,8 @@ void inplace_merge(BidirectionalIter first, BidirectionalIter middle, Bidirectio
     }
     
     // 简单的原地合并实现
-    auto len1 = distance(first, middle);
-    auto len2 = distance(middle, last);
+    auto len1 = middle - first;
+    auto len2 = last - middle;
     
     if (len1 < len2) {
         // 交换两个序列
@@ -894,13 +1021,58 @@ void inplace_merge(BidirectionalIter first, BidirectionalIter middle, Bidirectio
         // 递归合并
         auto mid1 = first + len1 / 2;
         auto mid2 = mystl::lower_bound(middle, last, *mid1, comp);
-        auto mid3 = mid1 + distance(middle, mid2);
+        auto mid3 = mid1 + (mid2 - middle);
         
-        mystl::rotate(mid1, middle, mid2);
+        rotate(mid1, middle, mid2);
         inplace_merge(first, mid1, mid3, comp);
         inplace_merge(mid3, mid2, last, comp);
     }
+}
+
+// ============================================================================
+// 旋转算法
+// ============================================================================
+
+/**
+ * @brief 将[first, middle)和[middle, last)两个区间交换位置
+ * @param first 起始迭代器
+ * @param middle 中间迭代器
+ * @param last 结束迭代器
+ * @return 指向原来 middle 位置的迭代器
+ */
+template <class ForwardIter>
+ForwardIter rotate(ForwardIter first, ForwardIter middle, ForwardIter last) {
+    if (first == middle) {
+        return last;
+    }
+    if (middle == last) {
+        return first;
+    }
     
+    auto next = middle;
+    do {
+        mystl::iter_swap(first, next);
+        ++first;
+        ++next;
+        if (first == middle) {
+            middle = next;
+        }
+    } while (next != last);
+    
+    auto result = first;
+    next = middle;
+    while (next != last) {
+        mystl::iter_swap(first, next);
+        ++first;
+        ++next;
+        if (first == middle) {
+            middle = next;
+        } else if (next == last) {
+            next = middle;
+        }
+    }
+    
+    return result;
 }
 
 } // namespace mystl
