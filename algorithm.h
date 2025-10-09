@@ -38,14 +38,14 @@
 // 算法基础 - 必须首先包含
 #include "algobase.h"
 
-// 基本算法（非修改和修改算法）
-#include "algo.h"
-
-// 堆算法（专门的堆算法实现）
+// 堆算法（专门的堆算法实现）- 必须在 algo.h 之前
 #include "heap_algo.h"
 
 // 集合算法（集合操作和合并算法）
 #include "set_algo.h"
+
+// 基本算法（非修改和修改算法）
+#include "algo.h"
 
 // 数值算法（数值计算算法）
 #include "numeric.h"

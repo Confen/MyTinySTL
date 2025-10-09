@@ -416,24 +416,17 @@ OutputIter generate_n(OutputIter first, Size n, Generator gen) {
 // 排序相关算法
 // ============================================================================
 
-/**
- * @brief 检查[first, last)区间内的元素是否已经排序
- * @param first 起始迭代器
- * @param last 结束迭代器
- * @return 如果已排序返回 true，否则返回 false
- */
-template <class ForwardIter>
-bool is_sorted(ForwardIter first, ForwardIter last) {
-    return is_sorted(first, last, less<typename iterator_traits<ForwardIter>::value_type>());
-}
+// 先声明三参数版本，避免两参数版本内联调用时找不到重载
+template <class ForwardIter, class Compared>
+bool is_sorted(ForwardIter first, ForwardIter last, Compared comp);
 
 /**
- * @brief 检查[first, last)区间内的元素是否已经排序，使用给定的比较函数
- * @param first 起始迭代器
- * @param last 结束迭代器
- * @param comp 比较函数
- * @return 如果已排序返回 true，否则返回 false
- */
+* @brief 检查[first, last)区间内的元素是否已经排序，使用给定的比较函数
+* @param first 起始迭代器
+* @param last 结束迭代器
+* @param comp 比较函数
+* @return 如果已排序返回 true，否则返回 false
+*/
 template <class ForwardIter, class Compared>
 bool is_sorted(ForwardIter first, ForwardIter last, Compared comp) {
     if (first == last) {
@@ -446,6 +439,17 @@ bool is_sorted(ForwardIter first, ForwardIter last, Compared comp) {
             return false;
     }
     return true;
+}
+
+/**
+* @brief 检查[first, last)区间内的元素是否已经排序
+* @param first 起始迭代器
+* @param last 结束迭代器
+* @return 如果已排序返回 true，否则返回 false
+*/
+template <class ForwardIter>
+bool is_sorted(ForwardIter first, ForwardIter last) {
+    return mystl::is_sorted(first, last, less<typename iterator_traits<ForwardIter>::value_type>());
 }
 
 /**
@@ -791,12 +795,16 @@ void partial_sort(RandomIter first, RandomIter middle, RandomIter last, Compared
         return;
     }
     
-    // 简单的堆排序实现 - 注意：这里调用的是 heap_algo.h 中的 make_heap
-    make_heap(first, last, comp);
-    for (auto i = last; i != middle; --i) {
-        mystl::iter_swap(first, i - 1);
-        pop_heap(first, i - 1, comp);
+    // 标准 partial_sort：在 [first, middle) 建堆，扫描 [middle, last) 维护堆
+    mystl::make_heap(first, middle, comp); // 使 first 处为堆顶
+    for (auto i = middle; i != last; ++i) {
+        if (comp(*i, *first)) {            // 新元素更“小”，替换堆顶
+            mystl::iter_swap(i, first);
+            mystl::pop_heap(first, middle, comp); // 调整堆
+        }
     }
+    // 将 [first, middle) 堆转为有序
+    mystl::sort_heap(first, middle, comp);
 }
 
 /**
@@ -840,7 +848,7 @@ ForwardIter rotate(ForwardIter first, ForwardIter middle, ForwardIter last) {
     
     ForwardIter result = first;
     next = middle;
-    while (next != last) {
+    while (next != last) {  //last指的是最后元素的下一个位置
         mystl::iter_swap(first++, next++);
         if (first == middle) {
             middle = next;
@@ -900,7 +908,7 @@ void inplace_merge(BidirectionalIter first, BidirectionalIter middle, Bidirectio
         inplace_merge(first, mid1, mid3, comp);
         inplace_merge(mid3, mid2, last, comp);
     }
-    
+
 }
 
 } // namespace mystl
