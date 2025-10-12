@@ -81,7 +81,7 @@ public:
     // 对象构造
     template<typename U, typename... Args>
     void construct(U* p, Args&&... args) {
-        mystl::construct(p, std::forward<Args>(args)...);
+        mystl::construct(p, mystl::forward<Args>(args)...);
     }
 
     // 对象析构
@@ -163,7 +163,7 @@ struct allocator_traits {
     // 构造对象
     template<typename T, typename... Args>
     static void construct(allocator_type& a, T* p, Args&&... args) {
-        a.construct(p, std::forward<Args>(args)...);
+        a.construct(p, mystl::forward<Args>(args)...);
     }
 
     // 析构对象
@@ -241,7 +241,7 @@ public:
     // 构造对象
     template<typename... Args>
     void construct(pointer p, Args&&... args) {
-        alloc_.construct(p, std::forward<Args>(args)...);
+        alloc_.construct(p, mystl::forward<Args>(args)...);
     }
 
     // 析构对象

@@ -438,7 +438,7 @@ struct is_input_iterator : m_bool_constant<
     is_iterator<T>::value &&
     std::is_convertible<
         decltype(*std::declval<T>()),
-        typename std::iterator_traits<T>::value_type
+        typename mystl::iterator_traits<T>::value_type
     >::value
 > {};
 
@@ -451,7 +451,7 @@ struct is_output_iterator : m_bool_constant<
     is_iterator<T>::value &&
     std::is_assignable<
         decltype(*std::declval<T>()),
-        typename std::iterator_traits<T>::value_type
+        typename mystl::iterator_traits<T>::value_type
     >::value
 > {};
 
@@ -495,10 +495,9 @@ struct is_random_access_iterator : m_bool_constant<
     >::value &&
     std::is_convertible<
         decltype(std::declval<T>()[0]),
-        typename std::iterator_traits<T>::reference
+        typename mystl::iterator_traits<T>::reference
     >::value
 > {};
-
 } // namespace mystl
 
 #endif // MYTINYSTL_TYPE_TRAITS_H_

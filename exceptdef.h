@@ -190,7 +190,7 @@ struct mystl_is_nothrow_destructible {
  */
 class mystl_exception : public std::exception {
 private:
-    std::string message_;
+    mystl::string message_;
 
 public:
     /**
@@ -208,7 +208,7 @@ public:
      * @brief 带消息的构造函数
      * @param msg 异常消息
      */
-    explicit mystl_exception(const std::string& msg) noexcept : message_(msg) {}
+    explicit mystl_exception(const mystl::string& msg) noexcept : message_(msg) {}
 
     /**
      * @brief 拷贝构造函数
@@ -263,7 +263,7 @@ public:
      * @brief 获取异常消息
      * @return 异常消息的字符串
      */
-    const std::string& message() const noexcept {
+    const mystl::string& message() const noexcept {
         return message_;
     }
 };
@@ -276,7 +276,7 @@ public:
 class mystl_logic_error : public mystl_exception {
 public:
     explicit mystl_logic_error(const char* msg) noexcept : mystl_exception(msg) {}
-    explicit mystl_logic_error(const std::string& msg) noexcept : mystl_exception(msg) {}
+    explicit mystl_logic_error(const mystl::string& msg) noexcept : mystl_exception(msg) {}
     mystl_logic_error(const mystl_logic_error& other) noexcept : mystl_exception(other) {}
     mystl_logic_error(mystl_logic_error&& other) noexcept : mystl_exception(std::move(other)) {}
     mystl_logic_error& operator=(const mystl_logic_error& other) noexcept {
@@ -298,7 +298,7 @@ public:
 class mystl_runtime_error : public mystl_exception {
 public:
     explicit mystl_runtime_error(const char* msg) noexcept : mystl_exception(msg) {}
-    explicit mystl_runtime_error(const std::string& msg) noexcept : mystl_exception(msg) {}
+    explicit mystl_runtime_error(const mystl::string& msg) noexcept : mystl_exception(msg) {}
     mystl_runtime_error(const mystl_runtime_error& other) noexcept : mystl_exception(other) {}
     mystl_runtime_error(mystl_runtime_error&& other) noexcept : mystl_exception(std::move(other)) {}
     mystl_runtime_error& operator=(const mystl_runtime_error& other) noexcept {
@@ -321,7 +321,7 @@ class mystl_bad_alloc : public mystl_exception {
 public:
     mystl_bad_alloc() noexcept : mystl_exception("MyTinySTL bad allocation") {}
     explicit mystl_bad_alloc(const char* msg) noexcept : mystl_exception(msg) {}
-    explicit mystl_bad_alloc(const std::string& msg) noexcept : mystl_exception(msg) {}
+    explicit mystl_bad_alloc(const mystl::string& msg) noexcept : mystl_exception(msg) {}
     mystl_bad_alloc(const mystl_bad_alloc& other) noexcept : mystl_exception(other) {}
     mystl_bad_alloc(mystl_bad_alloc&& other) noexcept : mystl_exception(std::move(other)) {}
     mystl_bad_alloc& operator=(const mystl_bad_alloc& other) noexcept {
@@ -344,7 +344,7 @@ class mystl_bad_cast : public mystl_exception {
 public:
     mystl_bad_cast() noexcept : mystl_exception("MyTinySTL bad cast") {}
     explicit mystl_bad_cast(const char* msg) noexcept : mystl_exception(msg) {}
-    explicit mystl_bad_cast(const std::string& msg) noexcept : mystl_exception(msg) {}
+    explicit mystl_bad_cast(const mystl::string& msg) noexcept : mystl_exception(msg) {}
     mystl_bad_cast(const mystl_bad_cast& other) noexcept : mystl_exception(other) {}
     mystl_bad_cast(mystl_bad_cast&& other) noexcept : mystl_exception(std::move(other)) {}
     mystl_bad_cast& operator=(const mystl_bad_cast& other) noexcept {
@@ -367,7 +367,7 @@ class mystl_bad_typeid : public mystl_exception {
 public:
     mystl_bad_typeid() noexcept : mystl_exception("MyTinySTL bad typeid") {}
     explicit mystl_bad_typeid(const char* msg) noexcept : mystl_exception(msg) {}
-    explicit mystl_bad_typeid(const std::string& msg) noexcept : mystl_exception(msg) {}
+    explicit mystl_bad_typeid(const mystl::string& msg) noexcept : mystl_exception(msg) {}
     mystl_bad_typeid(const mystl_bad_typeid& other) noexcept : mystl_exception(other) {}
     mystl_bad_typeid(mystl_bad_typeid&& other) noexcept : mystl_exception(std::move(other)) {}
     mystl_bad_typeid& operator=(const mystl_bad_typeid& other) noexcept {
@@ -389,7 +389,7 @@ public:
 class mystl_length_error : public mystl_logic_error {
 public:
     explicit mystl_length_error(const char* msg) noexcept : mystl_logic_error(msg) {}
-    explicit mystl_length_error(const std::string& msg) noexcept : mystl_logic_error(msg) {}
+    explicit mystl_length_error(const mystl::string& msg) noexcept : mystl_logic_error(msg) {}
     mystl_length_error(const mystl_length_error& other) noexcept : mystl_logic_error(other) {}
     mystl_length_error(mystl_length_error&& other) noexcept : mystl_logic_error(std::move(other)) {}
     mystl_length_error& operator=(const mystl_length_error& other) noexcept {
@@ -411,7 +411,7 @@ public:
 class mystl_out_of_range : public mystl_logic_error {
 public:
     explicit mystl_out_of_range(const char* msg) noexcept : mystl_logic_error(msg) {}
-    explicit mystl_out_of_range(const std::string& msg) noexcept : mystl_logic_error(msg) {}
+    explicit mystl_out_of_range(const mystl::string& msg) noexcept : mystl_logic_error(msg) {}
     mystl_out_of_range(const mystl_out_of_range& other) noexcept : mystl_logic_error(other) {}
     mystl_out_of_range(mystl_out_of_range&& other) noexcept : mystl_logic_error(std::move(other)) {}
     mystl_out_of_range& operator=(const mystl_out_of_range& other) noexcept {
@@ -433,7 +433,7 @@ public:
 class mystl_invalid_argument : public mystl_logic_error {
 public:
     explicit mystl_invalid_argument(const char* msg) noexcept : mystl_logic_error(msg) {}
-    explicit mystl_invalid_argument(const std::string& msg) noexcept : mystl_logic_error(msg) {}
+    explicit mystl_invalid_argument(const mystl::string& msg) noexcept : mystl_logic_error(msg) {}
     mystl_invalid_argument(const mystl_invalid_argument& other) noexcept : mystl_logic_error(other) {}
     mystl_invalid_argument(mystl_invalid_argument&& other) noexcept : mystl_logic_error(std::move(other)) {}
     mystl_invalid_argument& operator=(const mystl_invalid_argument& other) noexcept {
@@ -455,7 +455,7 @@ public:
 class mystl_domain_error : public mystl_logic_error {
 public:
     explicit mystl_domain_error(const char* msg) noexcept : mystl_logic_error(msg) {}
-    explicit mystl_domain_error(const std::string& msg) noexcept : mystl_logic_error(msg) {}
+    explicit mystl_domain_error(const mystl::string& msg) noexcept : mystl_logic_error(msg) {}
     mystl_domain_error(const mystl_domain_error& other) noexcept : mystl_logic_error(other) {}
     mystl_domain_error(mystl_domain_error&& other) noexcept : mystl_logic_error(std::move(other)) {}
     mystl_domain_error& operator=(const mystl_domain_error& other) noexcept {
@@ -477,7 +477,7 @@ public:
 class mystl_range_error : public mystl_runtime_error {
 public:
     explicit mystl_range_error(const char* msg) noexcept : mystl_runtime_error(msg) {}
-    explicit mystl_range_error(const std::string& msg) noexcept : mystl_runtime_error(msg) {}
+    explicit mystl_range_error(const mystl::string& msg) noexcept : mystl_runtime_error(msg) {}
     mystl_range_error(const mystl_range_error& other) noexcept : mystl_runtime_error(other) {}
     mystl_range_error(mystl_range_error&& other) noexcept : mystl_runtime_error(std::move(other)) {}
     mystl_range_error& operator=(const mystl_range_error& other) noexcept {
@@ -499,7 +499,7 @@ public:
 class mystl_overflow_error : public mystl_runtime_error {
 public:
     explicit mystl_overflow_error(const char* msg) noexcept : mystl_runtime_error(msg) {}
-    explicit mystl_overflow_error(const std::string& msg) noexcept : mystl_runtime_error(msg) {}
+    explicit mystl_overflow_error(const mystl::string& msg) noexcept : mystl_runtime_error(msg) {}
     mystl_overflow_error(const mystl_overflow_error& other) noexcept : mystl_runtime_error(other) {}
     mystl_overflow_error(mystl_overflow_error&& other) noexcept : mystl_runtime_error(std::move(other)) {}
     mystl_overflow_error& operator=(const mystl_overflow_error& other) noexcept {
@@ -521,7 +521,7 @@ public:
 class mystl_underflow_error : public mystl_runtime_error {
 public:
     explicit mystl_underflow_error(const char* msg) noexcept : mystl_runtime_error(msg) {}
-    explicit mystl_underflow_error(const std::string& msg) noexcept : mystl_runtime_error(msg) {}
+    explicit mystl_underflow_error(const mystl::string& msg) noexcept : mystl_runtime_error(msg) {}
     mystl_underflow_error(const mystl_underflow_error& other) noexcept : mystl_runtime_error(other) {}
     mystl_underflow_error(mystl_underflow_error&& other) noexcept : mystl_runtime_error(std::move(other)) {}
     mystl_underflow_error& operator=(const mystl_underflow_error& other) noexcept {

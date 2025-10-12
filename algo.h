@@ -447,7 +447,7 @@ bool is_sorted(ForwardIter first, ForwardIter last, Compared comp) {
 * @param last 结束迭代器
 * @return 如果已排序返回 true，否则返回 false
 */
-template <class ForwardIter>
+template <class ForwardIter>  //“先三参，后二参内显式 mystl::is_sorted
 bool is_sorted(ForwardIter first, ForwardIter last) {
     return mystl::is_sorted(first, last, less<typename iterator_traits<ForwardIter>::value_type>());
 }

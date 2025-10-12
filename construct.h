@@ -22,7 +22,7 @@ namespace mystl {
 template<typename T, typename... Args>
 void construct(T* ptr, Args&&... args) {
     if (ptr != nullptr) {
-        new(ptr) T(std::forward<Args>(args)...);
+        new(ptr) T(mystl::forward<Args>(args)...);
     }
 }
 
@@ -109,7 +109,7 @@ void construct_range(ForwardIterator first, ForwardIterator last, const T& value
 template<typename ForwardIterator, typename T>
 void construct_range(ForwardIterator first, ForwardIterator last, T&& value) {
     for (; first != last; ++first) {
-        construct(&*first, std::forward<T>(value));
+        construct(&*first,mystl::forward<T>(value));
     }
 }
 
@@ -132,7 +132,7 @@ bool construct_safe(T* ptr, Args&&... args) {
     }
     
     try {
-        new(ptr) T(std::forward<Args>(args)...);
+        new(ptr) T(mystl::forward<Args>(args)...);
         return true;
     } catch (...) {
         return false;
@@ -149,12 +149,12 @@ bool construct_safe(T* ptr, Args&&... args) {
  * @return 构造成功的对象数量
  */
 template<typename ForwardIterator, typename... Args>
-typename std::iterator_traits<ForwardIterator>::difference_type
+typename mystl::iterator_traits<ForwardIterator>::difference_type
 construct_safe_range(ForwardIterator first, ForwardIterator last, Args&&... args) {
-    typename std::iterator_traits<ForwardIterator>::difference_type count = 0;
+    typename  mystl::iterator_traits<ForwardIterator>::difference_type count = 0;
     
     for (; first != last; ++first) {
-        if (construct_safe(&*first, std::forward<Args>(args)...)) {
+        if (construct_safe(&*first, mystl::forward<Args>(args)...)) {
             ++count;
         } else {
             // 构造失败，析构已构造的对象
@@ -187,7 +187,7 @@ bool is_constructed(T* ptr) {
  * @return 对象大小
  */
 template<typename T>
-constexpr std::size_t object_size() {
+constexpr mystl::size_t object_size() {
     return sizeof(T);
 }
 
@@ -197,7 +197,7 @@ constexpr std::size_t object_size() {
  * @return 对象对齐
  */
 template<typename T>
-constexpr std::size_t object_align() {
+constexpr mystl::size_t object_align() {
     return alignof(T);
 }
 
@@ -256,7 +256,7 @@ public:
     bool construct(Args&&... args) {
         if (ptr_ != nullptr && !constructed_) {
             try {
-                mystl::construct(ptr_, std::forward<Args>(args)...);
+                mystl::construct(ptr_, mystl::forward<Args>(args)...);
                 constructed_ = true;
                 return true;
             } catch (...) {

@@ -12,12 +12,17 @@
 #include <algorithm>
 #include <functional>
 #include <type_traits>
+#include<initializer_list>
 #include "type_traits.h"
 #include "exceptdef.h"
 
 namespace mystl {
-
-// ============================================================================
+    template<typename T>
+    typename mystl::remove_reference<T>::type&& move(T&& t) noexcept
+    template<typename T> T&& forward(typename mystl::remove_reference<T>::type&) noexcept;
+    template<typename T> T&& forward(typename mystl::remove_reference<T>::type&&) noexcept;
+    template<typename T> void swap(T& a, T& b) noexcept;
+    template<typename T, size_t N> void swap(T (&a)[N], T (&b)[N]) noexcept(noexcept(swap(*a, *b)));
 // pair 模板类
 // ============================================================================
 
@@ -52,7 +57,7 @@ struct pair {
     
     // 模板移动构造函数
     template<typename U1, typename U2>
-    pair(pair<U1, U2>&& p) : first(std::move(p.first)), second(std::move(p.second)) {}
+    pair(pair<U1, U2>&& p) : first(mystl::move(p.first)), second(mystl::move(p.second)) {}
     
     // 拷贝赋值操作符
     pair& operator=(const pair&) = default;
@@ -71,14 +76,14 @@ struct pair {
     // 模板移动赋值操作符
     template<typename U1, typename U2>
     pair& operator=(pair<U1, U2>&& p) {
-        first = std::move(p.first);
-        second = std::move(p.second);
+        first = mystl::move(p.first);
+        second = mystl::move(p.second);
         return *this;
     }
     
     // swap 函数
     void swap(pair& p) noexcept {
-        using std::swap;
+        using mystl::swap;
         swap(first, p.first);
         swap(second, p.second);
     }
@@ -134,7 +139,7 @@ template<typename T1, typename T2>
 pair<typename std::decay<T1>::type, typename std::decay<T2>::type>
 make_pair(T1&& t1, T2&& t2) {
     return pair<typename std::decay<T1>::type, typename std::decay<T2>::type>(
-        std::forward<T1>(t1), std::forward<T2>(t2));
+        mystl::forward<T1>(t1), mystl::forward<T2>(t2));
 }
 
 // ============================================================================
@@ -295,7 +300,7 @@ pair<const T&, const T&> minmax(const T& a, const T& b, Compare comp) {
  */
 template<typename T>
 T max(std::initializer_list<T> ilist) {
-    return *std::max_element(ilist.begin(), ilist.end());
+    return *mystl::max_element(ilist.begin(), ilist.end());
 }
 
 /**
@@ -308,7 +313,7 @@ T max(std::initializer_list<T> ilist) {
  */
 template<typename T, typename Compare>
 T max(std::initializer_list<T> ilist, Compare comp) {
-    return *std::max_element(ilist.begin(), ilist.end(), comp);
+    return *mystl::max_element(ilist.begin(), ilist.end(), comp);
 }
 
 /**
@@ -317,10 +322,10 @@ T max(std::initializer_list<T> ilist, Compare comp) {
  * @param ilist 初始化列表
  * @return T 最小值
  */
-template<typename T>
-T min(std::initializer_list<T> ilist) {
-    return *std::min_element(ilist.begin(), ilist.end());
-}
+// template<typename T>
+// T min(std::initializer_list<T> ilist) {
+//     return *mystl::min_element(ilist.begin(), ilist.end());
+// }
 
 /**
  * @brief 使用比较器返回初始化列表中的最小值
@@ -330,10 +335,10 @@ T min(std::initializer_list<T> ilist) {
  * @param comp 比较器
  * @return T 最小值
  */
-template<typename T, typename Compare>
-T min(std::initializer_list<T> ilist, Compare comp) {
-    return *std::min_element(ilist.begin(), ilist.end(), comp);
-}
+// template<typename T, typename Compare>
+// T min(std::initializer_list<T> ilist, Compare comp) {
+//     return *mystl::min_element(ilist.begin(), ilist.end(), comp);
+// }
 
 /**
  * @brief 返回初始化列表中的最小值和最大值
@@ -341,11 +346,11 @@ T min(std::initializer_list<T> ilist, Compare comp) {
  * @param ilist 初始化列表
  * @return pair<T, T> 包含最小值和最大值的 pair
  */
-template<typename T>
-pair<T, T> minmax(std::initializer_list<T> ilist) {
-    auto result = std::minmax_element(ilist.begin(), ilist.end());
-    return pair<T, T>(*result.first, *result.second);
-}
+// template<typename T>
+// pair<T, T> minmax(std::initializer_list<T> ilist) {
+//     auto result = mystl::minmax_element(ilist.begin(), ilist.end());
+//     return pair<T, T>(*result.first, *result.second);
+// }
 
 /**
  * @brief 使用比较器返回初始化列表中的最小值和最大值
@@ -355,11 +360,11 @@ pair<T, T> minmax(std::initializer_list<T> ilist) {
  * @param comp 比较器
  * @return pair<T, T> 包含最小值和最大值的 pair
  */
-template<typename T, typename Compare>
-pair<T, T> minmax(std::initializer_list<T> ilist, Compare comp) {
-    auto result = std::minmax_element(ilist.begin(), ilist.end(), comp);
-    return pair<T, T>(*result.first, *result.second);
-}
+// template<typename T, typename Compare>
+// pair<T, T> minmax(std::initializer_list<T> ilist, Compare comp) {
+//     auto result = mystl::minmax_element(ilist.begin(), ilist.end(), comp);
+//     return pair<T, T>(*result.first, *result.second);
+// }
 
 // ============================================================================
 // 其他工具函数
