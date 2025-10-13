@@ -187,7 +187,7 @@ bool is_constructed(T* ptr) {
  * @return 对象大小
  */
 template<typename T>
-constexpr mystl::size_t object_size() {
+constexpr std::size_t object_size() {
     return sizeof(T);
 }
 
@@ -197,7 +197,7 @@ constexpr mystl::size_t object_size() {
  * @return 对象对齐
  */
 template<typename T>
-constexpr mystl::size_t object_align() {
+constexpr std::size_t object_align() {
     return alignof(T);
 }
 

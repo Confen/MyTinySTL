@@ -18,7 +18,7 @@
 
 namespace mystl {
     template<typename T>
-    typename mystl::remove_reference<T>::type&& move(T&& t) noexcept
+    typename mystl::remove_reference<T>::type&& move(T&& t) noexcept;
     template<typename T> T&& forward(typename mystl::remove_reference<T>::type&) noexcept;
     template<typename T> T&& forward(typename mystl::remove_reference<T>::type&&) noexcept;
     template<typename T> void swap(T& a, T& b) noexcept;
@@ -300,7 +300,7 @@ pair<const T&, const T&> minmax(const T& a, const T& b, Compare comp) {
  */
 template<typename T>
 T max(std::initializer_list<T> ilist) {
-    return *mystl::max_element(ilist.begin(), ilist.end());
+    return *std::max_element(ilist.begin(), ilist.end());
 }
 
 /**
@@ -313,7 +313,7 @@ T max(std::initializer_list<T> ilist) {
  */
 template<typename T, typename Compare>
 T max(std::initializer_list<T> ilist, Compare comp) {
-    return *mystl::max_element(ilist.begin(), ilist.end(), comp);
+    return *std::max_element(ilist.begin(), ilist.end(), comp);
 }
 
 /**

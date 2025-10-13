@@ -3,10 +3,8 @@
 
 #include <cstddef>
 #include <iterator>
+#include <ostream>
 #include <type_traits>
-
-#include "type_traits.h"
-#include "exceptdef.h"
 
 namespace mystl {
 

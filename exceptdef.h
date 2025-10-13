@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
-
+#include "mystl_string.h"
 namespace mystl {
 
 // ============================================================================
