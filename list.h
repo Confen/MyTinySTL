@@ -378,6 +378,7 @@ namespace mystl {
        }
 
        void assign(size_type count,const T& value) {
+        //clear后cend 即为begin
         clear();
         if(count == 0) return;
         insert(cend(),count,value);
@@ -385,6 +386,7 @@ namespace mystl {
 
        template <typename InputIterator>
        void assign(InputIterator first,InputIterator last) {
+       //clear后cend 即为begin
         clear();
         if(first == last) return;
         insert(cend(),first,last);

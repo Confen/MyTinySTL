@@ -1,0 +1,460 @@
+#ifndef MYTINYSTL_DEQUE_H
+#define MYTINYSTL_DEQUE_H
+
+#include<new>
+#include <cstddef>
+#include "iterator.h" 
+#include "util.h"
+#include "construct.h"
+#include "exceptdef.h"
+
+namespace mystl {
+    
+    template <typename T,std::size_t BufS = 0>
+    struct deque_buf_size {
+        static constexpr size_t value =  BufS != 0 ? BufS : 
+        //static_cast<size_t>(1)为1 * sizeof(T),表示至少有一个元素，为有效缓冲区
+        (sizeof(T) < 512 ? static_cast<size_t>(512 / sizeof(T)) : static_cast<size_t>(1)); //至少一个缓冲区
+    };
+
+    //非类型模板参数（int,size_t）BufS为0时，即表示使用默认值
+    template <typename T,std::size_t BufS = 0>
+    struct deque_iterator {
+        //基本类型定义
+        using value_type        = T;
+        using pointer           =T*;
+        using reference         =T&;
+        using difference_type   =std::ptrdiff_t;
+        using iterator_category = mystl::random_access_iterator_tag;
+
+        //缓冲区大小
+        static constexpr std::size_t buffer_size = deque_buf_size<T,BufS>::value;
+
+        pointer cur;
+        pointer first;
+        pointer last;
+        //指向的是map 中“当前块指针”的那个槽位本身（T** 指向 map[i]）
+        pointer* node;
+
+        void set_node(pointer* newnode) {
+            node = newnode;
+            first = *newnode;
+            last = first + buffer_size;
+        }
+
+        deque_iterator() : cur(nullptr), first(nullptr), last(nullptr), node(nullptr) {}
+        deque_iterator(pointer* cur_,pointer first_,pointer last_,pointer*node_) : cur(cur_),first(first_)
+        ,last(last_),node(node_) {}
+
+        reference operator*() const {return * cur;}
+        pointer operator->() const {return cur;}
+
+        bool operator==(const deque_iterator& rhs) const {return cur == rhs.cur && node == rhs.node;}
+        bool operator!=(const deque_iterator& rhs) const {return !(*this == rhs);}
+
+        deque_iterator& operator++() noexcept{++cur; if(cur == last){set_node(node + 1); cur = first;} return *this;}
+        deque_iterator operator++(int) noexcept{deque_iterator tmp = *this;++(*this);return tmp;} //会修改*this,所以不能const
+
+        deque_iterator& operator--() noexcept {
+            if(cur == first){set_node(node-1);
+            cur = last;} 
+            --cur;
+            return*this;
+         }
+        deque_iterator operator--(int)noexcept {deque_iterator tmp = *this; --(*this); return tmp;} //会修改*this,所以不能const
+
+        deque_iterator& operator+=(difference_type n) noexcept {
+            difference_type offset = n + (cur - first);
+            if(0 <= offset && offset < buffer_size) {
+                cur += n;
+                return* this;
+        }else{
+        difference_type node_offset = (offset >= 0) ? (offset / buffer_size) : -((-offset + buffer_size - 1) / buffer_size);
+        set_node(node + node_offset);
+        cur = first + (offset - node_offset * static_cast<difference_type>(buffer_size)) ;
+        return *this;
+        }
+    }
+    deque_iterator& operator-=(difference_type n) noexcept {
+        operator+=(-n);
+        return *this;
+    }
+    deque_iterator operator+(difference_type n) const noexcept{
+        auto tmp = *this;
+        tmp += n;
+        return tmp;
+    }
+    deque_iterator operator-(difference_type n) const noexcept{
+        auto tmp = *this;
+        tmp += -n;
+        return tmp;
+    }
+    difference_type operator-(const deque_iterator& rhs) const noexcept{
+        if(node == rhs.node) return cur - rhs.cur;
+        else {
+            difference_type node_diff = node - rhs.node;
+            difference_type this_off = cur - first;
+            difference_type rhs_off = rhs.cur - rhs.first;
+            return node_diff * static_cast<difference_type>(buffer_size) + this_off - rhs_off;
+        }
+    }
+
+    reference operator[](difference_type n) const noexcept{
+        return *(*this + n);
+    }
+
+    bool operator<(const deque_iterator& rhs) const noexcept{
+        return (node== rhs.node) ? (cur < rhs.cur) : (node < rhs.node);
+    }
+
+    bool operator>=(const deque_iterator& rhs) const noexcept
+    {
+        return rhs < *this || rhs == *this;
+    }
+
+    bool operator>(const deque_iterator& rhs) const noexcept
+    {
+        return rhs < *this;
+    }
+};
+
+    template <typename T,std::size_t BufS = 0>
+    class deque {
+        public:
+        using value_type        = T;
+        using pointer           = T*;
+        using reference         = T&;
+        using const_pointer     = const T*;
+        using const_reference   = const T&;
+        using size_type         = std::size_t;
+        using difference_type   = std::ptrdiff_t;
+
+        using iterator          =deque_iterator<T,BufS>;
+        using const_iterator    =deque_iterator<const T,BufS>;
+
+        private:
+         // map 区：指向各缓冲块首地址的指针数组
+        pointer* map_;//缓冲区首地址
+        size_type map_size_;//缓冲区数量
+
+         // 有效区：起止迭代器标识当前数据范围
+        iterator start_;//起始迭代器    //start_.first 属于 start_ 当前所处的块（首部所在块，不会指向相邻备用空块）
+        iterator finish_;//结束迭代器   //finish_.last 属于 finish_ 当前所处的块（尾后所在块，可能是备用空块）
+
+        size_type size_;
+        //分配器,释放节点
+        pointer allocate_node(){
+            const size_type n = deque_buf_size<T,BufS>::value;
+        return static_cast<pointer>(::operator new(sizeof(T) * n));
+        }
+        void deallocate_node(pointer buf) noexcept{::operator delete(buf);}
+        //创建map区和节点,释放节点
+        void create_map_and_nodes(size_type num_nodes){
+            map_ = static_cast<pointer*>(::operator new(sizeof(pointer) * num_nodes));
+            map_size_ = num_nodes;
+            for(size_type i = 0; i < num_nodes; ++i)
+            {
+                map_[i] = nullptr;
+            }
+        }
+        void destroy_map_and_nodes() noexcept{::operator delete(map_);}
+
+        void initialize_empty()
+        {
+            map_size_ = 8;
+            map_ =static_cast<pointer*>(::operator new(sizeof(pointer) * map_size_));
+            const size_type center = map_size_ / 2;
+            for (size_type i = 0; i < map_size_; ++i) {
+                map_[i] = nullptr;
+              }
+            map_[center] = allocate_node();
+            start_.set_node(map_ + center);
+            finish_.set_node(map_ + center);
+            start_.cur = start_.first;
+            finish_.cur = start_.first;
+        }
+
+        //目标：当块内满时，若相邻槽位是空的，就分配新块并且将新块的指针赋值给相邻槽位，然后跳过去再插入,
+        // 若相邻槽位不可用(下一步做 map 扩容）
+        void require_back_slot(){
+            if(finish_.cur != finish_.last) return; 
+            if(finish_.node + 1 < map_ + map_size_ && *(finish_.node + 1) == nullptr)
+            {
+                // *(finish_.node + 1) = allocate_node();
+                // finish_.set_node(finish_.node + 1);
+                // finish_.cur = finish_.first;
+                reallocate_map(1,false);
+            }
+            if(*(finish_.node + 1) == nullptr)
+            {
+                *(finish_.node + 1) = allocate_node();
+            }
+            finish_.set_node(finish_.node + 1);
+            finish_.cur = finish_.first;
+        }
+
+        void require_front_slot(){
+            if(start_.cur != start_.first) return;
+            if(start_.node > map_ && *(start_.node - 1) == nullptr)
+            {
+                reallocate_map(1,true);
+            }
+            if(*(start_.node - 1) == nullptr) {
+                *(start_.node - 1) = allocate_node();
+            }
+            start_.set_node(start_.node - 1);
+            start_.cur = start_.last;
+        }
+        
+        void reallocate_map(std::size_t nodes_to_add,bool add_at_front)
+        {
+            const size_type old_nodes = static_cast<size_type>(finish_.node - start_.node + 1);
+            size_type new_map_size = mystl::max(map_size_ * 2, map_size_ + nodes_to_add + 2);
+
+            pointer* new_map = static_cast<pointer*>(::operator new(sizeof(pointer) * new_map_size));
+            for(size_type i = 0;i < new_map_size;++i) new_map[i] = nullptr;
+
+            const size_type old_start_index = static_cast<size_type>(start_.node - map_);
+            const size_type bias = add_at_front ? nodes_to_add : 0;
+            const size_type new_start_index = (new_map_size - old_nodes) /  2 + bias;
+
+            //拷贝旧的map到新的map
+            for(size_type i = 0;i <old_nodes;++i)
+            {
+                new_map[new_start_index + i] = map_[old_start_index + i];
+            }
+            //保留块内偏移
+            const difference_type start_off = start_.cur - start_.first;
+            const difference_type finish_off = finish_.cur - finish_.first;
+
+            const size_type new_finish_index = new_start_index + old_nodes - 1;
+            start_.set_node(new_map + new_start_index);
+            finish_.set_node(new_map + new_finish_index);
+
+            start_.cur = start_.first + start_off;
+            finish_.cur = finish_.first + finish_off;
+
+            ::operator delete(map_);
+            map_ = new_map;
+            map_size_ = new_map_size;
+        }
+       public:
+       deque() noexcept : map_(nullptr),map_size_(0),start_(),finish_(),size_(0){initialize_empty();}
+
+       bool      empty() const noexcept {return start_ == finish_;}
+       size_type size()  const noexcept {return size_;}  //等待实现
+
+       reference front(){return *start_.cur;}
+       const_reference front() const{return *start_.cur;}
+       reference back(){iterator tmp = finish_;--tmp;return *tmp;}
+       const_reference back() const{iterator tmp = finish_;--tmp;return *tmp;}
+
+       iterator begin() noexcept{return start_;}
+       const_iterator begin() const noexcept{return start_;}
+       const_iterator cbegin() const noexcept{return const_iterator(start_);}
+       iterator end() noexcept{return finish_;}
+       const_iterator end() const noexcept{return finish_;}
+       const_iterator cend() const noexcept{return const_iterator(finish_);}
+
+       void push_back(const value_type& value){
+        require_back_slot();
+        if(finish_.cur != finish_.last){
+           mystl::construct(finish_.cur,value);
+            ++finish_.cur;
+        }     
+        ++size_;
+    }
+       void push_back(value_type&& value){
+        require_back_slot();
+        if(finish_.cur != finish_.last){
+          mystl::construct(finish_.cur,mystl::forward<value_type>(value));
+            ++finish_.cur;
+        }
+        ++size_;
+       }
+
+       void push_front(const value_type& value){
+        require_front_slot();
+        if(start_.cur != start_.first){
+          mystl::construct(start_.cur - 1,value);
+            --start_.cur;
+        }
+        ++size_;
+       }
+       void push_front(value_type&& value){
+        require_front_slot();
+        if(start_.cur != start_.first){
+            mystl::construct(start_.cur - 1,mystl::forward<value_type>(value));
+            --start_.cur;
+        }
+        ++size_;
+        }
+       void pop_back(){
+        if(empty())return;
+        if(finish_.cur != finish_.first){
+            --finish_.cur;           
+           mystl::destroy(finish_.cur);
+        }else{
+            pointer old_buf = finish_.first;
+            size_type index = static_cast<size_type>(finish_.node - map_);
+            *(map_ + index) = nullptr;
+            deallocate_node(old_buf);
+
+            finish_.set_node(finish_.node - 1);
+            finish_.cur = finish_.last - 1;
+            mystl::destroy(finish_.cur);
+        }
+        --size_;
+       }
+       void pop_front(){
+        if(empty()) return;
+        if(start_.cur != start_.last - 1){
+           mystl::destroy(start_.cur);
+            ++start_.cur;
+        } else{
+            mystl::destroy(start_.cur);
+
+            pointer old_buf = start_.first;
+            size_type index = static_cast<size_type>(start_.node - map_);
+            *(map_ + index) = nullptr;  
+            deallocate_node(old_buf);
+
+           start_.set_node(start_.node + 1);
+           start_.cur = start_.first;
+        }
+        --size_;
+       }
+
+       reference operator[](size_type n)
+       {
+        iterator it  = start_;
+        it += static_cast<difference_type>(n);
+        return *it;
+       }
+       const_reference operator[](size_type n) const
+       {
+        const_iterator it = start_;
+        it += static_cast<difference_type>(n);
+        return *it;
+       }
+
+       reference at(size_type n)
+       {
+        if(n >= size_) throw mystl::mystl_out_of_range("deque::at: n is out of range");
+        return (*this)[n];
+       }
+
+       const_reference at(size_type n) const
+       {
+        if(n >= size_) throw mystl::mystl_out_of_range("deque::at: n is out of range");
+        return (*this)[n];
+       }
+
+       void clear() noexcept {
+        //析构所有元素
+        //此时start_.node和finish_.node是相邻的，不需要单独处理
+        while(!empty()) {pop_back();} 
+        //释放除了start_.node和finish_.node之外的map_区
+        const size_type start_index = static_cast<size_type>(start_.node - map_);
+        for (pointer* p = map_; p != map_ + map_size_; ++p) {
+            if (p != start_.node && *p) {
+              deallocate_node(*p);
+              *p = nullptr;
+            }
+          }
+        
+        start_.set_node(map_ + start_index);
+        finish_.set_node(map_ + start_index);
+        start_.cur = start_.first;
+        finish_.cur = finish_.first;
+        size_ = 0;
+       }
+
+       ~deque() {
+        clear();
+        const size_type idx = static_cast<size_type>(start_.node - map_);
+        if(map_ && map_[idx]) {
+            deallocate_node(map_[idx]);
+            map_[idx] = nullptr;
+        }
+        if(map_) {
+            ::operator delete(map_);
+            map_ = nullptr;
+            map_size_ = 0;
+        }
+       }
+
+       void resize(size_type count) {
+        if(count < size_) {
+            while (size_ > count) pop_back();
+        }else if(count > size_) {
+                while(size_ < count) push_back(value_type());
+            }
+        }
+
+        void resize(size_type count,const value_type& value)
+        {
+            if(count < size_) {
+                while (size_ > count) pop_back();
+            }else if(count > size_) {
+                while(size_ < count) push_back(value);
+            }
+        }
+
+        void assign(size_type count,const value_type& value){
+           clear();
+           while(count--) push_back(value);
+        }
+//如果InputIterator是整数类型，则不进行赋值,通过SFINAE机制,使用enable_if来选择合适的函数重载
+        template <typename InputIterator,typename = typename std::enable_if<!std::is_integral<InputIterator>::value>::type>
+        void assign(InputIterator first,InputIterator last){
+            clear();
+            for(;first != last;++first) push_back(*first);}
+            //或者指针哑元类型
+            // template <class InputIt>
+            // typename std::enable_if<!std::is_integral<InputIt>::value, void>::type
+            // assign(InputIt first, InputIt last) {
+            // clear();
+            // for (; first != last; ++first) push_back(*first);
+
+        iterator insert(iterator pos,const value_type& value){
+            difference_type index = pos - start_;
+
+            if(index < static_cast<difference_type>(size_ / 2)) {
+                push_front(front());
+                pos = start_ + 1;
+                iterator it_src = start_ + 1;
+                iterator it_dst = start_;
+                for(;it_src != pos;++it_scr,++it_dst)
+                {
+                    *it_dst = *it_src;
+                }
+                *(start_ + index) = value;
+                return start_ + index;
+            }else{
+                push_back(back());
+                pos = start_ + index;
+                iterator it_src =  finish_ - 2;
+                iterator it_dst = finish_ - 1;
+                while(it_src >= pos) {
+                    *it_dst = *it_src;
+                    --it_dst;
+                    --it_src;
+                }
+                *pos = value;
+                return 
+            }
+        }
+
+        iterator erase(iterator pos) {
+
+        }
+        iterator erase(iterator first,iterator last){
+            
+        }
+        
+        };//class deque
+
+    }//namespace mystl
+    
+    #endif
