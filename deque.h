@@ -43,8 +43,8 @@ namespace mystl {
         }
 
         deque_iterator() : cur(nullptr), first(nullptr), last(nullptr), node(nullptr) {}
-        deque_iterator(pointer* cur_,pointer first_,pointer last_,pointer*node_) : cur(cur_),first(first_)
-        ,last(last_),node(node_) {}
+        deque_iterator(pointer cur_, pointer first_, pointer last_, pointer* node_) : cur(cur_), first(first_)
+        , last(last_), node(node_) {}
 
         reference operator*() const {return * cur;}
         pointer operator->() const {return cur;}
@@ -65,16 +65,19 @@ namespace mystl {
 
         deque_iterator& operator+=(difference_type n) noexcept {
             difference_type offset = n + (cur - first);
-            if(0 <= offset && offset < buffer_size) {
+            const difference_type bs = static_cast<difference_type>(buffer_size);
+            if (0 <= offset && offset < bs) {
                 cur += n;
-                return* this;
-        }else{
-        difference_type node_offset = (offset >= 0) ? (offset / buffer_size) : -((-offset + buffer_size - 1) / buffer_size);
-        set_node(node + node_offset);
-        cur = first + (offset - node_offset * static_cast<difference_type>(buffer_size)) ;
-        return *this;
+                return *this;
+            } else {
+                difference_type node_offset = (offset >= 0)
+                    ? (offset / bs)
+                    : -((-offset + bs - 1) / bs);
+                set_node(node + node_offset);
+                cur = first + (offset - node_offset * bs);
+                return *this;
+            }
         }
-    }
     deque_iterator& operator-=(difference_type n) noexcept {
         operator+=(-n);
         return *this;
@@ -177,30 +180,39 @@ namespace mystl {
         //目标：当块内满时，若相邻槽位是空的，就分配新块并且将新块的指针赋值给相邻槽位，然后跳过去再插入,
         // 若相邻槽位不可用(下一步做 map 扩容）
         void require_back_slot(){
-            if(finish_.cur != finish_.last) return; 
-            if(finish_.node + 1 < map_ + map_size_ && *(finish_.node + 1) == nullptr)
-            {
-                // *(finish_.node + 1) = allocate_node();
-                // finish_.set_node(finish_.node + 1);
-                // finish_.cur = finish_.first;
-                reallocate_map(1,false);
-            }
-            if(*(finish_.node + 1) == nullptr)
-            {
-                *(finish_.node + 1) = allocate_node();
+            if (finish_.cur != finish_.last) return; // 当前块未满，无需处理
+
+            // 需要移动到尾部的下一个块
+            if (finish_.node + 1 < map_ + map_size_) {
+                // map 仍有槽位
+                if (*(finish_.node + 1) == nullptr) {
+                    *(finish_.node + 1) = allocate_node();
+                }
+            } else {
+                // map 无槽位，需要扩容（在尾部预留）
+                reallocate_map(1, false);
+                if (*(finish_.node + 1) == nullptr) {
+                    *(finish_.node + 1) = allocate_node();
+                }
             }
             finish_.set_node(finish_.node + 1);
             finish_.cur = finish_.first;
         }
 
         void require_front_slot(){
-            if(start_.cur != start_.first) return;
-            if(start_.node > map_ && *(start_.node - 1) == nullptr)
-            {
-                reallocate_map(1,true);
-            }
-            if(*(start_.node - 1) == nullptr) {
-                *(start_.node - 1) = allocate_node();
+            if (start_.cur != start_.first) return; // 当前块前部仍有空间
+
+            if (start_.node > map_) {
+                // map 左侧仍有槽位
+                if (*(start_.node - 1) == nullptr) {
+                    *(start_.node - 1) = allocate_node();
+                }
+            } else {
+                // 已在最左端，无槽位可用，扩容到前部
+                reallocate_map(1, true);
+                if (*(start_.node - 1) == nullptr) {
+                    *(start_.node - 1) = allocate_node();
+                }
             }
             start_.set_node(start_.node - 1);
             start_.cur = start_.last;
@@ -351,18 +363,23 @@ namespace mystl {
        }
 
        void clear() noexcept {
-        //析构所有元素
-        //此时start_.node和finish_.node是相邻的，不需要单独处理
-        while(!empty()) {pop_back();} 
-        //释放除了start_.node和finish_.node之外的map_区
+        // 析构所有元素
+        while (!empty()) { pop_back(); }
+
+        // 释放除当前槽位外的所有块
         const size_type start_index = static_cast<size_type>(start_.node - map_);
         for (pointer* p = map_; p != map_ + map_size_; ++p) {
             if (p != start_.node && *p) {
-              deallocate_node(*p);
-              *p = nullptr;
+                deallocate_node(*p);
+                *p = nullptr;
             }
-          }
-        
+        }
+
+        // 确保当前槽位有一个有效块
+        if (map_[start_index] == nullptr) {
+            map_[start_index] = allocate_node();
+        }
+
         start_.set_node(map_ + start_index);
         finish_.set_node(map_ + start_index);
         start_.cur = start_.first;
@@ -425,7 +442,7 @@ namespace mystl {
                 pos = start_ + 1;
                 iterator it_src = start_ + 1;
                 iterator it_dst = start_;
-                for(;it_src != pos;++it_scr,++it_dst)
+                for(;it_src != pos;++it_src,++it_dst)
                 {
                     *it_dst = *it_src;
                 }
@@ -442,19 +459,197 @@ namespace mystl {
                     --it_src;
                 }
                 *pos = value;
-                return 
+                return pos;
             }
         }
 
+        //单点erase，左半段右移，右半段左移
         iterator erase(iterator pos) {
+           difference_type index = pos - start_;
+           if(index < static_cast<difference_type>(size_ / 2)) {
+            if (pos != start_) {
+                iterator it_src = pos - 1;
+                iterator it_dst = pos;
+                while(it_src >= start_) {
+                    *it_dst = *it_src;
+                    --it_src;
+                    --it_dst;
+                }
+            }
+            pop_front();
+          //返回删除元素的下一个位置
+            return start_ + index;
+           }
+           else {
+                iterator it_src = pos + 1;
+                iterator it_dst = pos;
+               for(;it_src != finish_;++it_src,++it_dst)
+                { 
+                    *it_dst = *it_src;
+                }
+                pop_back();
+                return start_ + index;
+           }
+        }
 
+        //区间erase，左半段右移，右半段左移
+        iterator erase(iterator first,iterator last) {
+            if(first ==  last) return first;
+            difference_type index_first = first - start_;
+            difference_type index_last = last - start_;
+            size_type n = static_cast<size_type>(index_last - index_first);  
+
+            if(index_first < static_cast<difference_type>(size_ - index_last))
+            {
+                if (first != start_) {
+                    iterator it_src = first - 1;
+                    iterator it_dst = last - 1;
+                    while(it_src >= start_) {
+                        *it_dst = *it_src;
+                        --it_dst;
+                        --it_src;
+                    }
+                }
+              for(size_type i = 0;i < n;i++) pop_front();
+              return start_ + index_first;
+            } else {
+                iterator it_src = last;
+                iterator it_dst = first;
+                for(;it_src != finish_;++it_src,++it_dst)
+                {
+                    *it_dst= *it_src;
+                }
+                for(size_type i = 0;i < n;i++) pop_back();
+                return start_ + index_first;
+            }       
         }
-        iterator erase(iterator first,iterator last){
-            
+//emplace_back返回最后一个元素的迭代器
+        template <class... Args>
+        iterator emplace_back(Args&&... args) {
+            require_back_slot();
+            mystl::construct(finish_.cur,mystl::forward<Args>(args)...);
+            ++finish_.cur;
+            ++size_;
+            iterator it  = finish_;
+            --it;
+            return it;
         }
-        
+//emplace_front返回第一个元素的迭代器
+        template <class... Args>
+        iterator emplace_front(Args&&... args){
+            require_front_slot();
+            mystl::construct(start_.cur,value_type(mystl::forward<Args>(args)...));
+            --start_.cur;
+            ++size_;
+            return start_;
+        }
+//emplace返回插入位置的迭代器
+        template <class... Args>
+        iterator emplace(iterator pos,Args&&... args){
+        return insert(pos,value_type(mystl::forward<Args>(args)...));
+        }
+
+        void swap(deque& other) noexcept{
+            mystl::swap(map_,other.map_);
+            mystl::swap(map_size_,other.map_size_);
+            mystl::swap(start_,other.start_);
+            mystl::swap(finish_,other.finish_);
+            mystl::swap(size_,other.size_);
+        }
+
+        //ADL机制，找到swap函数,不用找命名空间
+        friend swap(deque& a,deque& b) noexcept{
+            a.swap(b);
+        }
+
+        friend bool operator==(const deque& a,const deque& b)noexcept{
+            if(a.size_ != b.size_) return false;
+            auto it = a.begin();
+            auto it2 = b.begin();
+           for(;it != a.end() && it2 != b.end();++it,++it2)
+            {
+                if(!(*it == *it2)) return false;
+            }
+            return true;
+        }
+        // 
+        friend bool operator!=(const deque& a,const deque& b)noexcept{
+            {
+                !(a == b);
+            }
+        }
+        //字典序比较,从头开始比较,出现第一组不相等，如果a小于b,返回true,否则返回false
+        friend bool operator < (const deque& a,const deque& b)noexcept{
+            auto it = a.begin();
+            auto it2 = b.begin();
+            for(;it != a.end()&&it2 != b.end();++it,++it2)
+            {
+                if(*it < *it2) return true;
+                if(*it2 < *it) return false;
+            }
+            return it == a.end() && it2 != b.end();
+        }
+        friend bool operator<=(const deque& a,const deque& b)noexcept{
+            return !(b < a);
+        }
+        friend bool operator>(const deque& a,const deque& b)noexcept{
+            return b < a;
+        }
+        friend bool operator>=(const deque& a,const deque& b)noexcept{
+            return !(a < b);
+        }
+
+        //拷贝构造
+        deque(const deque& other) : map_(nullptr),map_size_(0),start_(),finish_(),size_(0)
+        {
+            initialize_empty();
+            assign(other.begin(),other.end());
+        }
+        deque(deque&& other) noexcept:map_(other.map_),map_size_(other.map_size_),start_(other.start_),finish_(other.finish_),size_(other.size_)
+        {
+            other.map_ = nullptr;
+            other.map_size_ = 0;
+            other.start_ = iterator();
+            other.finish_ = iterator();
+            other.size_ = 0;
+        }
+
+        //拷贝赋值
+        deque& operator=(const deque& other){
+            if(&other == this) return *this;
+            clear();
+            assign(other.begin(),other.end());
+            return *this;
+        }
+        //移动赋值
+        deque& operator=(deque&& other) noexcept{
+            if(this == &other) return *this;
+            clear();
+            destroy_map_and_nodes();
+            map_ = other.map_;
+            map_size_ = other.map_size_;
+            start_ = other.start_;
+            finish_ = other.finish_;
+            size_ = other.size_;
+            other.map_ = nullptr;
+            other.map_size_ = 0;
+            other.start_ = iterator();
+            other.finish_ = iterator();
+            other.size_ = 0;
+            return *this;
+        }
+        //初始化列表赋值
+        deque(std::initializer_list<value_type> ilist) : map_(nullptr),map_size_(0),start_(),finish_(),size_(0)
+        {
+            initialize_empty();
+            assign(ilist.begin(),ilist.end());
+        }
+        deque& operator=(std::initializer_list<value_type> ilist){
+            clear();
+            assign(ilist.begin(),ilist.end());
+            return *this;
+        }
         };//class deque
-
     }//namespace mystl
     
     #endif
