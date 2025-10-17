@@ -3,6 +3,7 @@
 
 #include<new>
 #include <cstddef>
+#include <type_traits>
 #include "iterator.h" 
 #include "util.h"
 #include "construct.h"
@@ -26,26 +27,23 @@ namespace mystl {
         using reference         =T&;
         using difference_type   =std::ptrdiff_t;
         using iterator_category = mystl::random_access_iterator_tag;
-
+        using nonconst_pointer  =typename std::remove_const<T>::type*;
+        using map_pointer       =nonconst_pointer*;
         //缓冲区大小
         static constexpr std::size_t buffer_size = deque_buf_size<T,BufS>::value;
-
-        pointer cur;
-        pointer first;
-        pointer last;
+        nonconst_pointer cur;
+        nonconst_pointer first;
+        nonconst_pointer last;
         //指向的是map 中“当前块指针”的那个槽位本身（T** 指向 map[i]）
-        pointer* node;
-
-        void set_node(pointer* newnode) {
+        map_pointer node;
+        void set_node(map_pointer newnode) {
             node = newnode;
             first = *newnode;
-            last = first + buffer_size;
+            last = first + static_cast<difference_type>(buffer_size);
         }
-
         deque_iterator() : cur(nullptr), first(nullptr), last(nullptr), node(nullptr) {}
-        deque_iterator(pointer cur_, pointer first_, pointer last_, pointer* node_) : cur(cur_), first(first_)
+        deque_iterator(nonconst_pointer cur_, nonconst_pointer first_, nonconst_pointer last_, map_pointer node_) : cur(cur_), first(first_)
         , last(last_), node(node_) {}
-
         reference operator*() const {return * cur;}
         pointer operator->() const {return cur;}
 
@@ -150,6 +148,11 @@ namespace mystl {
             const size_type n = deque_buf_size<T,BufS>::value;
         return static_cast<pointer>(::operator new(sizeof(T) * n));
         }
+        //强异常保证的插入实现(待实现)
+        iterator do_insert_strong(iterator pos,const_iterator first,const_iterator last)
+
+        iterator do_insert_strong(iterator pos,iterator first,iterator last)
+
         void deallocate_node(pointer buf) noexcept{::operator delete(buf);}
         //创建map区和节点,释放节点
         void create_map_and_nodes(size_type num_nodes){
@@ -160,7 +163,19 @@ namespace mystl {
                 map_[i] = nullptr;
             }
         }
-        void destroy_map_and_nodes() noexcept{::operator delete(map_);}
+        void destroy_map_and_nodes() noexcept{
+            if (!map_) return;
+            // 释放所有已分配的块
+            for (size_type i = 0; i < map_size_; ++i) {
+                if (map_[i]) {
+                    deallocate_node(map_[i]);
+                    map_[i] = nullptr;
+                }
+            }
+            ::operator delete(map_);
+            map_ = nullptr;
+            map_size_ = 0;
+        }
 
         void initialize_empty()
         {
@@ -261,12 +276,12 @@ namespace mystl {
        reference back(){iterator tmp = finish_;--tmp;return *tmp;}
        const_reference back() const{iterator tmp = finish_;--tmp;return *tmp;}
 
-       iterator begin() noexcept{return start_;}
-       const_iterator begin() const noexcept{return start_;}
-       const_iterator cbegin() const noexcept{return const_iterator(start_);}
-       iterator end() noexcept{return finish_;}
-       const_iterator end() const noexcept{return finish_;}
-       const_iterator cend() const noexcept{return const_iterator(finish_);}
+       iterator begin() noexcept{iterator tmp = start_;return tmp;}
+       const_iterator begin() const noexcept{return const_iterator(start_.cur,start_.first,start_.last,start_.node);}
+       const_iterator cbegin() const noexcept{return const_iterator(start_.cur,start_.first,start_.last,start_.node);}
+       iterator end() noexcept{iterator tmp = finish_;return tmp;}
+       const_iterator end() const noexcept{return const_iterator(finish_.cur,finish_.first,finish_.last,finish_.node);}
+       const_iterator cend() const noexcept{return const_iterator(finish_.cur,finish_.first,finish_.last,finish_.node);}
 
        void push_back(const value_type& value){
         require_back_slot();
@@ -363,6 +378,14 @@ namespace mystl {
        }
 
        void clear() noexcept {
+        // moved-from 保护：map_ 为空时不做任何指针运算
+        //防止反复释放内存
+        if (!map_) {
+            size_ = 0;
+            start_ = iterator();
+            finish_ = iterator();
+            return;
+        }
         // 析构所有元素
         while (!empty()) { pop_back(); }
 
@@ -388,17 +411,49 @@ namespace mystl {
        }
 
        ~deque() {
+        if (!map_) return; // moved-from 安全
         clear();
         const size_type idx = static_cast<size_type>(start_.node - map_);
-        if(map_ && map_[idx]) {
+        if (map_[idx]) {
             deallocate_node(map_[idx]);
             map_[idx] = nullptr;
         }
-        if(map_) {
+        ::operator delete(map_);
+        map_ = nullptr;
+        map_size_ = 0;
+       }
+
+       // 收缩到合适大小
+       void shrink_to_fit() noexcept{
+            if(!map_) return;
+            const size_type old_nodes = static_cast<size_type>(finish_ - start_ + 1);
+            size_type new_map_size = old_nodes + 2;
+            if(new_map_size < static_cast<size_type>(8)){
+                new_map_size = static_cast<size_type>(8);
+            }
+            if(new_map_size > map_size_) {new_map_size = map_size_;}
+
+            const difference_type start_off = start_.cur - start_.first;
+            const difference_type finish_off = finish_.cur - finish_.first;
+
+            pointer*new_map = static_cast<pointer*>(::operator new(sizeof(pointer) * new_map_size));
+            for(size_type i = 0;i < new_map_size;++i) new_map[i] = nullptr;
+
+            const size_type old_start_index = static_cast<size_type>(start_.node - map_);
+            const size_type new_start_index = (new_map_size - old_nodes) / 2;
+            for(size_type i =0;i < old_nodes;++i)
+            {
+                new_map[new_start_index + i] = map_[old_start_index + i];
+            }
+
+            start_.set_node(new_map + new_start_index);
+            finish_.set_node(new_map + new_start_index + old_nodes - 1);
+            start_.cur = start_.first + start_off;
+            finish_.cur = finish_.first + finish_off;
+
             ::operator delete(map_);
-            map_ = nullptr;
-            map_size_ = 0;
-        }
+            map_ = new_map;
+            map_size_ = new_map_size;
        }
 
        void resize(size_type count) {
@@ -422,7 +477,7 @@ namespace mystl {
            clear();
            while(count--) push_back(value);
         }
-//如果InputIterator是整数类型，则不进行赋值,通过SFINAE机制,使用enable_if来选择合适的函数重载
+        //如果InputIterator是整数类型，则不进行赋值,通过SFINAE机制,使用enable_if来选择合适的函数重载
         template <typename InputIterator,typename = typename std::enable_if<!std::is_integral<InputIterator>::value>::type>
         void assign(InputIterator first,InputIterator last){
             clear();
@@ -433,7 +488,13 @@ namespace mystl {
             // assign(InputIt first, InputIt last) {
             // clear();
             // for (; first != last; ++first) push_back(*first);
-
+        //初始化列表赋值
+       void assign(std::initializer_list<value_type> ilist){
+        clear();
+        assign(ilist.begin(),ilist.end());
+       }
+        //返回插入位置的迭代器
+        //单点插入，左半段右移，右半段左移
         iterator insert(iterator pos,const value_type& value){
             difference_type index = pos - start_;
 
@@ -444,7 +505,7 @@ namespace mystl {
                 iterator it_dst = start_;
                 for(;it_src != pos;++it_src,++it_dst)
                 {
-                    *it_dst = *it_src;
+                    *it_dst = mystl::move(*it_src);
                 }
                 *(start_ + index) = value;
                 return start_ + index;
@@ -454,7 +515,7 @@ namespace mystl {
                 iterator it_src =  finish_ - 2;
                 iterator it_dst = finish_ - 1;
                 while(it_src >= pos) {
-                    *it_dst = *it_src;
+                    *it_dst = mystl::move(*it_src);
                     --it_dst;
                     --it_src;
                 }
@@ -462,7 +523,94 @@ namespace mystl {
                 return pos;
             }
         }
+        //右值插入，左半段右移，右半段左移
+        iterator insert(iterator pos,value_type&& value)
+        {
+            difference_type index = pos - start_;
 
+            if(index < static_cast<difference_type>(size_ / 2)) {
+                push_front(front());
+                pos = start_ + 1;
+                iterator it_src = start_ + 1;
+                iterator it_dst = start_;
+                for(;it_src != pos;++it_src,++it_dst)
+                {
+                    *it_dst = mystl::move(*it_src);
+                }
+                *(start_ + index) = mystl::move(value);
+                return start_ + index;
+            }else{
+                push_back(back());
+                pos = start_ + index;
+                iterator it_src =  finish_ - 2;
+                iterator it_dst = finish_ - 1;
+                while(it_src >= pos) {
+                    *it_dst = mystl::move(*it_src);
+                    --it_dst;
+                    --it_src;
+                }
+                *pos = mystl::move(value);
+                return start_ + index;
+            }
+        }
+        //单点插入，左半段右移，右半段左移
+        iterator insert(iterator pos,size_type count,const value_type& value)
+        {
+            if(count == 0) return pos;
+            difference_type index = pos - start_;
+            for(size_type i = 0;i < count;++i)
+            {
+                pos = insert(start_ + index + static_cast<difference_type>(i),value);
+            }
+            return start_ + index;
+        }
+        //区间插入，左半段右移，右半段左移
+        //SFINAE机制，如果InputIterator是整数类型，则不进行插入
+        template<typename InputIterator,typename 
+        = typename std::enable_if<!std::is_integral<InputIterator>::value>::type>
+        iterator insert(iterator pos,InputIterator first,InputIterator last)
+        {
+            if(first == last) return pos;
+            difference_type index = pos - start_;
+            size_type i = 0;
+            for(;first != last;++first,++i)
+            {
+                pos = insert(start_ + index + static_cast<difference_type>(i),*first);
+            }
+            return start_ + index;
+        }
+        //初始化列表插入，左半段右移，右半段左移
+        iterator insert(iterator pos,std::initializer_list<value_type> ilist)
+        {
+            difference_type index = pos - start_;
+            size_type i = 0;
+            for(const auto& it : ilist)
+            {
+                pos = insert(start_ + index + static_cast<difference_type>(i),it);
+                ++i;
+            }
+            return start_ + index;
+        }
+
+        //区间插入，左半段右移，右半段左移
+        iterator insert(iterator pos,const_iterator first,const_iterator last)
+        {
+            difference_type index = pos - start_;
+            size_type n = static_cast<size_type>(last - first);
+            if(n == 0) return start_ + index;
+            pointer tmp = static_cast<pointer>(::operator new(sizeof(value_type)*n));
+            for(int i = 0;first != last;++first,++i)
+            {
+                mystl::construct(tmp + i,*first);
+            }
+            for(int i = 0;i< n;i++)
+            {
+                insert(start_ + index + static_cast<difference_type>(i),*(tmp + i));
+            }
+            mystl::destroy(tmp,tmp + n);
+            ::operator delete(tmp);
+            return start_ + index;
+        }
         //单点erase，左半段右移，右半段左移
         iterator erase(iterator pos) {
            difference_type index = pos - start_;
@@ -471,7 +619,7 @@ namespace mystl {
                 iterator it_src = pos - 1;
                 iterator it_dst = pos;
                 while(it_src >= start_) {
-                    *it_dst = *it_src;
+                    *it_dst = mystl::move(*it_src);
                     --it_src;
                     --it_dst;
                 }
@@ -538,7 +686,9 @@ namespace mystl {
         template <class... Args>
         iterator emplace_front(Args&&... args){
             require_front_slot();
-            mystl::construct(start_.cur,value_type(mystl::forward<Args>(args)...));
+            //修正完美转发，避免value_type(mystl::forward<Args>(args)...)这种写法，
+            // 因为value_type可能没有构造函数
+            mystl::construct(start_.cur - 1,mystl::forward<Args>(args)...);
             --start_.cur;
             ++size_;
             return start_;
@@ -558,7 +708,7 @@ namespace mystl {
         }
 
         //ADL机制，找到swap函数,不用找命名空间
-        friend swap(deque& a,deque& b) noexcept{
+        friend void swap(deque& a,deque& b) noexcept{
             a.swap(b);
         }
 
@@ -575,7 +725,7 @@ namespace mystl {
         // 
         friend bool operator!=(const deque& a,const deque& b)noexcept{
             {
-                !(a == b);
+               return !(a == b);
             }
         }
         //字典序比较,从头开始比较,出现第一组不相等，如果a小于b,返回true,否则返回false
@@ -649,6 +799,7 @@ namespace mystl {
             assign(ilist.begin(),ilist.end());
             return *this;
         }
+
         };//class deque
     }//namespace mystl
     

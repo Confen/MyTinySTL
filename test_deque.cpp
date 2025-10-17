@@ -60,14 +60,70 @@ int main() {
         
         {
             //pair相当于一个元素，first和second是pair的成员变量
-            mystl::deque<std::pair<int,int>> dq;
-            dq.emplace_back(1,2);
-            dq.emplace_front(0,1);
-            auto it = dq.begin() + 1;
-            dq.emplace(it, 7,8);
-            std::cout << dq.size() << " "
-                      << dq.front().first << "," << dq.front().second << " "
-                      << dq.back().first  << "," << dq.back().second  << std::endl; // 3 0,1 1,2
+            mystl::deque<std::pair<int,int>> dq7;
+            dq7.emplace_back(1,2);
+            dq7.emplace_front(0,1);
+            auto it = dq7.begin() + 1;
+            dq7.emplace(it, 7,8);
+            std::cout << dq7.size() << " "
+                      << dq7.front().first << "," << dq7.front().second << " "
+                      << dq7.back().first  << "," << dq7.back().second  << std::endl; // 3 0,1 1,2
+        }
+         {
+            mystl::deque<int> a3{1,2,3};
+            mystl::deque<int> b3 = {1,2,3};
+            mystl::deque<int> c3;
+            c3 = {4,5};
+            std::cout << a3.size() << b3.size() << c3.size() << std::endl; // 332?
+            mystl::deque<int> d3(a3);      // 拷贝
+            mystl::deque<int> e(mystl::move(c3)); // 移动
+            std::cout << a3.size() << b3.size() << d3.size() << e.size() << std::endl; // 332?
+            std::cout << e.front() << std::endl; // 4
+         }
+         {
+            mystl::deque<int> dq;
+            for (int i = 0; i < 10; ++i) dq.push_back(i); // [0..9]
+        
+            auto it = dq.begin() + 5;
+            dq.insert(it, 3, 99);         // 在中间插入三个 99
+            // 期望：[0,1,2,3,4,99,99,99,5,6,7,8,9]
+            std::cout << "A: " << dq.size() << " " << dq[4] << " " << dq[5] << " " << dq[7] << " " << dq[8] << std::endl;
+        }
+        {
+            mystl::deque<int> dq;
+            for (int i = 0; i < 6; ++i) dq.push_back(i); // [0..5]
+            int a[] = {7,8,9};
+            auto mid = dq.begin() + 3;
+            dq.insert(mid, a, a+3);       // [0,1,2,7,8,9,3,4,5]
+            std::cout << "B: " << dq.size() << " " << dq[2] << " " << dq[3] << " " << dq[5] << " " << dq[6] << std::endl;
+        }
+        {
+            mystl::deque<int> dq;
+            for (int i = 0; i < 6; ++i) dq.push_back(i); // [0..5]
+            auto first = dq.begin() + 1;  // 指向 1
+            auto last  = dq.begin() + 4;  // 指向 4（半开区间，不含4）
+            auto pos   = dq.begin() + 2;  // 插入点在区间内部，重叠插入
+            dq.insert(pos, first, last);  // 行为定义：像 std::deque 一样，允许自引用，结果等价于把[1,4)复制一份插入到原来位置
+            std::cout << "B2: " << dq.size() << " " << dq[1] << " " << dq[2] << " " << dq[3] << " " << dq[4] << " " << dq[5] << std::endl;
+        }
+        {
+            mystl::deque<int> dq;
+            for (int i = 0; i < 10; ++i) dq.push_back(i); // [0..9]
+            dq.erase(dq.begin(), dq.begin()+3);           // 删左段 -> [3..9]
+            std::cout << "C1: " << dq.size() << " " << dq.front() << " " << dq.back() << std::endl;
+        
+            dq.erase(dq.end()-2, dq.end());               // 删右段 -> [3..7]
+            std::cout << "C2: " << dq.size() << " " << dq.front() << " " << dq.back() << std::endl;
+        
+            dq.erase(dq.begin()+2, dq.begin()+5);         // 删中段 -> [3,4,8,?] 实际序列取决于实现，但 size 应为 5 -> 2 -> 3
+            std::cout << "C3: " << dq.size() << " " << dq.front() << " " << dq.back() << std::endl;
+        }
+        {
+            mystl::deque<int> a{7,8};
+            mystl::deque<int> b = {7,8,9};
+            mystl::deque<int> c;
+            c = {1,2,3};
+            std::cout << "ilist: " << a.size() << " " << b.size() << " " << c.size() << " " << c.front() << " " << c.back() << std::endl;
         }
 // // 触发跨块：大量 push 再 pop
 // {
